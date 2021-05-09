@@ -1,5 +1,4 @@
 import argparse
-from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from dataset.CamVid import CamVid
 import os
@@ -8,10 +7,8 @@ import torch
 from tensorboardX import SummaryWriter
 import tqdm
 import numpy as np
-from utils import poly_lr_scheduler
-from utils import reverse_one_hot, compute_global_accuracy, fast_hist, \
-    per_class_iu
-from loss import DiceLoss
+from utils import poly_lr_scheduler, reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
+from utils.loss import DiceLoss
 
 
 def val(args, model, dataloader):
@@ -196,7 +193,7 @@ if __name__ == '__main__':
     params = [
         '--num_epochs', '1000',
         '--learning_rate', '2.5e-2',
-        '--data', '/path/to/CamVid',
+        '--data', 'data/CamVid/',
         '--num_workers', '8',
         '--num_classes', '12',
         '--cuda', '0',
