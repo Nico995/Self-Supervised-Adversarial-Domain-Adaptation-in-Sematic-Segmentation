@@ -49,29 +49,70 @@ def get_label_info(csv_path):
     return label
 
 
-def one_hot_it_v11(label, label_info):
-    # return semantic_map -> [H, W, class_num]
-    semantic_map = np.zeros(label.shape[:-1])
-    # from 0 to 11, and 11 means void
-    class_index = 0
+def encode_label_crossentropy(label, label_info, void_index=11):
+    """
+    Encodes the label images for Crossentropy Loss.
+    Each label is an RGB image with a unique color for each class.
+    This function changes the 3 channels color (R,G,B) to a single value representing the class index.
+
+    The classes that don't have the value set to 1 in label_info end up in the void class (first channel)
+
+    Args:
+        label (Image): current label image to encode.
+        label_info (dict): dictionary containing info on each class.
+
+    Returns:
+        ohe_image (np.array): encoded image
+    """
+
+    # Convert PIL.Image to np.array
+    label = np.array(label)
+
+    # Build the first layer of the encoded image (void class)
+    ohe_image = np.zeros(label.shape[:2])
+
+    class_count = 0
+    # Iterate over all classes info (R, G, B, class11_flag)
     for index, info in enumerate(label_info):
+        # Split color info from class11 flag
         color = label_info[info][:3]
-        class_11 = label_info[info][3]
-        if class_11 == 1:
-            # colour_map = np.full((label.shape[0], label.shape[1], label.shape[2]), colour, dtype=int)
-            equality = np.equal(label, color)
-            class_map = np.all(equality, axis=-1)
-            # semantic_map[class_map] = index
-            semantic_map[class_map] = class_index
-            class_index += 1
+        class11_flag = label_info[info][3]
+
+        # get a mask of triplets, where each elements is True if the
+        # current channel value corresponds to the current class info
+        equality = np.equal(label, color)
+
+        # Class matches only if all 3 channels match
+        class_map = np.all(equality, axis=-1)
+
+        # If class is in the 11_classes problem (or class11 problem is not considered at all)
+        if class11_flag:
+            # Set each pixel to the corresponding class index
+            ohe_image[class_map] = class_count
+            class_count += 1
         else:
-            equality = np.equal(label, color)
-            class_map = np.all(equality, axis=-1)
-            semantic_map[class_map] = 11
-    return semantic_map
+            ohe_image[class_map] = void_index
+
+    return ohe_image
 
 
 def encode_label_dice(label, label_info):
+    """
+    Encodes the label images for Dice Loss.
+    Each label is an RGB image with a unique color for each class.
+    This function moves each class in a dedicated channel of the image, putting to 1 the pixels where that specific
+    class is present (uses the RGB values to check for class presence).
+
+    The classes that don't have the value set to 1 in label_info end up in the void class (first channel)
+
+    Args:
+        label (Image): current label image to encode.
+        label_info (dict): dictionary containing info on each class.
+
+    Returns:
+        ohe_image (np.array): encoded image
+    """
+
     # Convert PIL.Image to np.array
     label = np.array(label)
 
