@@ -119,7 +119,7 @@ def main():
     test_path = os.path.join(args.data, 'test')
     test_label_path = os.path.join(args.data, 'test_labels')
     csv_path = os.path.join(args.data, 'class_dict.csv')
-    dataset_train = CamVid(train_path, train_label_path, csv_path, scale=(args.crop_height, args.crop_width),
+    dataset_train = CamVid(train_path, train_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
                            loss=args.loss, mode='train')
     dataloader_train = DataLoader(
         dataset_train,
@@ -128,7 +128,7 @@ def main():
         num_workers=args.num_workers,
         drop_last=True
     )
-    dataset_val = CamVid(test_path, test_label_path, csv_path, scale=(args.crop_height, args.crop_width),
+    dataset_val = CamVid(test_path, test_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
                          loss=args.loss, mode='test')
     dataloader_val = DataLoader(
         dataset_val,

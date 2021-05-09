@@ -68,7 +68,7 @@ def main(params):
     test_label_path = os.path.join(args.data, 'test_labels')
     # test_label_path = os.path.join(args.data, 'train_labels')
     csv_path = os.path.join(args.data, 'class_dict.csv')
-    dataset = CamVid(test_path, test_label_path, csv_path, scale=(args.crop_height, args.crop_width), mode='test')
+    dataset = CamVid(test_path, test_label_path, csv_path, image_size=(args.crop_height, args.crop_width), mode='test')
     dataloader = DataLoader(
         dataset,
         batch_size=1,
