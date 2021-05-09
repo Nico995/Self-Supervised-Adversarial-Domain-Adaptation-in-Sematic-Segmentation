@@ -3,12 +3,13 @@ import os
 import random
 
 import numpy as np
-import torch
 from PIL import Image
-from imgaug import augmenters as iaa
+
+import torch
+from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Normalize, ToTensor, RandomResizedCrop
 
-from utils import RandomCrop, one_hot_it_v11, one_hot_it_v11_dice, get_label_info
+from utils import one_hot_it_v11, one_hot_it_v11_dice, get_label_info
 
 
 # TODO: Remove and substitute with a Transform into the Compose (GaussianBlur is already implemented in pytorch)
@@ -28,7 +29,7 @@ class CamVid(torch.utils.data.Dataset):
     Custom dataset class to manage images and labels
     """
 
-    def __init__(self, image_path, label_path, csv_path, image_size, loss='dice', mode='train'):
+    def __init__(self, image_path, label_path, csv_path, image_size, loss='dice'):
         """
 
         Args:
@@ -37,7 +38,6 @@ class CamVid(torch.utils.data.Dataset):
             csv_path (str): path for the csv metadata.
             image_size (tuple): image width and height.
             loss (str): loss to utilize (changes the way that labels are transformed)
-            mode (str): training or evaluating mode.
         """
 
         super().__init__()
@@ -76,7 +76,7 @@ class CamVid(torch.utils.data.Dataset):
     def __getitem__(self, index):
         # Seed transformations (have to be the same random crop for image and label)
         seed = random.random()
-        torch.random.manual_seed(seed)
+        torch.random.manual_seed(int(seed))
         random.seed(seed)
 
         # Read images and transform
@@ -106,16 +106,3 @@ class CamVid(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.image_list)
-
-
-if __name__ == '__main__':
-    # data = CamVid('/path/to/CamVid/train', '/path/to/CamVid/train_labels', '/path/to/CamVid/class_dict.csv', (640, 640))
-    data = CamVid(['/data/sqy/CamVid/train', '/data/sqy/CamVid/val'],
-                  ['/data/sqy/CamVid/train_labels', '/data/sqy/CamVid/val_labels'], '/data/sqy/CamVid/class_dict.csv',
-                  (720, 960), loss='crossentropy', mode='val')
-    from utils import get_label_info
-
-    label_info = get_label_info('/data/sqy/CamVid/class_dict.csv')
-    for i, (img, label) in enumerate(data):
-        print(label.size())
-        print(torch.max(label))
