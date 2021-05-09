@@ -3,7 +3,7 @@ import torch
 import argparse
 import os
 from torch.utils.data import DataLoader
-from model.build_BiSeNet import BiSeNet
+from model import BiSeNet
 import numpy as np
 from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, cal_miou
 import tqdm
