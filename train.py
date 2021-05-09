@@ -1,14 +1,15 @@
-import argparse
-from torch.utils.data import DataLoader
-from dataset.CamVid import CamVid
 import os
-from model.build_BiSeNet import BiSeNet
-import torch
-from tensorboardX import SummaryWriter
-import tqdm
+
 import numpy as np
-from utils import poly_lr_scheduler, reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, DiceLoss
+import torch
+import tqdm
+from tensorboardX import SummaryWriter
+from torch.utils.data import DataLoader
+
+from dataset.CamVid import CamVid
+from model import BiSeNet
 from utils import load_args
+from utils import poly_lr_scheduler, reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, DiceLoss
 
 
 def val(args, model, dataloader):
@@ -120,7 +121,7 @@ def main():
     test_label_path = os.path.join(args.data, 'test_labels')
     csv_path = os.path.join(args.data, 'class_dict.csv')
     dataset_train = CamVid(train_path, train_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
-                           loss=args.loss, mode='train')
+                           loss=args.loss)
     dataloader_train = DataLoader(
         dataset_train,
         batch_size=args.batch_size,
@@ -129,7 +130,7 @@ def main():
         drop_last=True
     )
     dataset_val = CamVid(test_path, test_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
-                         loss=args.loss, mode='test')
+                         loss=args.loss)
     dataloader_val = DataLoader(
         dataset_val,
         # this has to be 1
@@ -168,6 +169,4 @@ def main():
 
 
 if __name__ == '__main__':
-
     main()
-
