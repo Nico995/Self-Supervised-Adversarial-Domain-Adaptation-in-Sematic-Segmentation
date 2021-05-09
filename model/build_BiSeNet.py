@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.nn.functional import interpolate
 
-from model.build_contextpath import build_contextpath
+from model.build_contextpath import build_context_path
 
 
 class ConvBlock(torch.nn.Module):
@@ -163,7 +163,7 @@ class BiSeNet(torch.nn.Module):
         self.saptial_path = Spatial_path()
 
         # build context path
-        self.context_path = build_contextpath(name=backbone)
+        self.context_path = build_context_path(name=backbone)
 
         # build attention refinement module  for resnet 101
         if backbone == 'resnet101':
