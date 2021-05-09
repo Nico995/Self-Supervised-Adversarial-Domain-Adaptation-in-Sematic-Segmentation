@@ -7,8 +7,8 @@ import torch
 from tensorboardX import SummaryWriter
 import tqdm
 import numpy as np
-from utils import poly_lr_scheduler, reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
-from utils.loss import DiceLoss
+from utils import poly_lr_scheduler, reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, DiceLoss
+from utils import load_args
 
 
 def val(args, model, dataloader):
@@ -109,31 +109,9 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             writer.add_scalar('epoch/miou val', miou, epoch)
 
 
-def main(params):
-    # basic parameters
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--num_epochs', type=int, default=300, help='Number of epochs to train for')
-    parser.add_argument('--epoch_start_i', type=int, default=0, help='Start counting epochs from this number')
-    parser.add_argument('--checkpoint_step', type=int, default=1, help='How often to save checkpoints (epochs)')
-    parser.add_argument('--validation_step', type=int, default=1, help='How often to perform validation (epochs)')
-    parser.add_argument('--dataset', type=str, default="CamVid", help='Dataset you are using.')
-    parser.add_argument('--crop_height', type=int, default=720, help='Height of cropped/resized input image to network')
-    parser.add_argument('--crop_width', type=int, default=960, help='Width of cropped/resized input image to network')
-    parser.add_argument('--batch_size', type=int, default=1, help='Number of images in each batch')
-    parser.add_argument('--context_path', type=str, default="resnet101",
-                        help='The context path model you are using, resnet18, resnet101.')
-    parser.add_argument('--learning_rate', type=float, default=0.01, help='learning rate used for train')
-    parser.add_argument('--data', type=str, default='', help='path of training data')
-    parser.add_argument('--num_workers', type=int, default=4, help='num of workers')
-    parser.add_argument('--num_classes', type=int, default=32, help='num of object classes (with void)')
-    parser.add_argument('--cuda', type=str, default='0', help='GPU ids used for training')
-    parser.add_argument('--use_gpu', type=bool, default=True, help='whether to user gpu for training')
-    parser.add_argument('--pretrained_model_path', type=str, default=None, help='path to pretrained model')
-    parser.add_argument('--save_model_path', type=str, default=None, help='path to save model')
-    parser.add_argument('--optimizer', type=str, default='rmsprop', help='optimizer, support rmsprop, sgd, adam')
-    parser.add_argument('--loss', type=str, default='dice', help='loss function, dice or crossentropy')
-
-    args = parser.parse_args(params)
+def main():
+    # Read command line arguments
+    args = load_args()
 
     # create dataset and dataloader
     train_path = [os.path.join(args.data, 'train'), os.path.join(args.data, 'val')]
@@ -190,18 +168,6 @@ def main(params):
 
 
 if __name__ == '__main__':
-    params = [
-        '--num_epochs', '1000',
-        '--learning_rate', '2.5e-2',
-        '--data', 'data/CamVid/',
-        '--num_workers', '8',
-        '--num_classes', '12',
-        '--cuda', '0',
-        '--batch_size', '2',  # 6 for resnet101, 12 for resnet18
-        '--save_model_path', './checkpoints_18_sgd',
-        '--context_path', 'resnet18',  # only support resnet18 and resnet101
-        '--optimizer', 'sgd',
 
-    ]
-    main(params)
+    main()
 
