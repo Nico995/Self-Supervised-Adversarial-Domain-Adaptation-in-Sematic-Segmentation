@@ -16,10 +16,12 @@ def load_args():
                         help='The context path model you are using, resnet18, resnet101.')
     parser.add_argument('--learning_rate', type=float, default=0.025, help='learning rate used for train')
     parser.add_argument('--data', type=str, default='data/CamVid/', help='path of training data')
-    parser.add_argument('--num_workers', type=int, default=6, help='num of workers')
+    parser.add_argument('--num_workers', type=int, default=1, help='num of workers')
     parser.add_argument('--num_classes', type=int, default=12, help='num of object classes (with void)')
     parser.add_argument('--cuda', type=str, default='0', help='GPU ids used for training')
     parser.add_argument('--use_gpu', type=bool, default=True, help='whether to user gpu for training')
+    parser.add_argument('--pre_encoded', type=bool, default=True,
+                        help='whether to use pre encoded labels or encode on the run')
     parser.add_argument('--pretrained_model_path', type=str, default=None, help='path to pretrained model')
     parser.add_argument('--save_model_path', type=str, default='./checkpoints_18_sgd', help='path to save model')
     parser.add_argument('--optimizer', type=str, default='sgd', help='optimizer, support rmsprop, sgd, adam')

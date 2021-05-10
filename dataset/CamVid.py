@@ -3,13 +3,24 @@ import os
 import random
 
 import numpy as np
-from PIL import Image
-
 import torch
+from PIL import Image
 from torch.utils.data import DataLoader
-from torchvision.transforms import Compose, Normalize, ToTensor, RandomResizedCrop, Resize, RandomCrop
+from torchvision.transforms import Compose, Normalize, ToTensor, RandomCrop, Resize
 
 from utils import encode_label_crossentropy, encode_label_dice, get_label_info
+
+
+class ToChannelLast(object):
+    """
+    Custom transformation to convert standard tensor dimensions (C, W, H) to convenient dimensions (W, H, C)
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, image):
+        return image.permute(1, 2, 0)
 
 
 # TODO: Remove and substitute with a Transform into the Compose (GaussianBlur is already implemented in pytorch)
@@ -61,7 +72,13 @@ class CamVid(torch.utils.data.Dataset):
         if not isinstance(label_path, list):
             label_path = [label_path]
         for label_path_ in label_path:
-            self.label_list.extend(glob.glob(os.path.join(label_path_, '*.png')))
+            if not self.pre_encoded:
+                # Standard labels are .png files
+                self.label_list.extend(glob.glob(os.path.join(label_path_, '*.png')))
+            else:
+                # While pre encoded labels are .npy files
+                self.label_list.extend(glob.glob(os.path.join(label_path_, '*.npy')))
+
         self.label_list.sort()
 
         # Transformations
@@ -91,19 +108,18 @@ class CamVid(torch.utils.data.Dataset):
         label = Resize(scaled_image_size)(label)
         label = RandomCrop(self.image_size, seed, pad_if_needed=True)(label)
 
+        # Encode label
         if self.loss == 'dice':
             # Encode label image
             label = encode_label_dice(label, self.label_info).astype(np.uint8)
             label = torch.from_numpy(label)
-
-            return image, label
 
         elif self.loss == 'crossentropy':
             # Encode label image
             label = encode_label_crossentropy(label, self.label_info).astype(np.uint8)
             label = torch.from_numpy(label).long()
 
-            return image, label
+        return image, label
 
     def __len__(self):
         return len(self.image_list)
