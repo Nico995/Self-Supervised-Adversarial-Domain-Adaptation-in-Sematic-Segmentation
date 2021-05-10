@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import pandas as pd
 import torch
@@ -60,6 +61,7 @@ def encode_label_crossentropy(label, label_info, void_index=11):
     Args:
         label (Image): current label image to encode.
         label_info (dict): dictionary containing info on each class.
+        void_index (int): void class index
 
     Returns:
         ohe_image (np.array): encoded image
@@ -239,3 +241,18 @@ def intersection_over_union(matrix, metadata, epsilon=1e-5):
     names = df.loc[df["class_11"] == 1, "name"]
 
     return zip(names, ious), np.mean(ious)
+
+
+def seed_worker(worker_id):
+    """
+    Sets the data loader workers seeds for reproducibility purposes
+
+    Args:
+        worker_id:
+
+    Returns:
+        Nothing
+    """
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
