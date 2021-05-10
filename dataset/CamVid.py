@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Normalize, ToTensor, RandomResizedCrop
 
-from utils import one_hot_it_v11, encode_label_dice, get_label_info
+from utils import encode_label_crossentropy, encode_label_dice, get_label_info
 
 
 # TODO: Remove and substitute with a Transform into the Compose (GaussianBlur is already implemented in pytorch)
@@ -88,16 +88,15 @@ class CamVid(torch.utils.data.Dataset):
         label = np.array(self.label_trans(label))
 
         if self.loss == 'dice':
-            # label -> [num_classes, H, W]
+            # Encode label image
             label = encode_label_dice(label, self.label_info).astype(np.uint8)
-            # label = label.astype(np.float32)
             label = torch.from_numpy(label)
 
             return image, label
 
         elif self.loss == 'crossentropy':
-            label = one_hot_it_v11(label, self.label_info).astype(np.uint8)
-            # label = label.astype(np.float32)
+            # Encode label image
+            label = encode_label_crossentropy(label, self.label_info).astype(np.uint8)
             label = torch.from_numpy(label).long()
 
             return image, label
