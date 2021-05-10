@@ -256,3 +256,18 @@ def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
+
+
+def convert_class_to_color(img):
+    class_to_color = [(0, 0, 0), (0, 128, 192), (128, 0, 0), (64, 0, 128), (192, 192, 128), (64, 64, 128), (64, 64, 0),
+                      (128, 64, 128), (0, 0, 192), (192, 128, 128), (128, 128, 128), (128, 128, 0)]
+
+    new_img = np.zeros(img.shape + (3,), dtype=np.uint8)
+
+    img = img.detach().cpu().numpy()
+    for r in range(img.shape[0]):
+        for c in range(img.shape[1]):
+            color = class_to_color[img[r, c]]
+            new_img[r, c] = color
+
+    return new_img
