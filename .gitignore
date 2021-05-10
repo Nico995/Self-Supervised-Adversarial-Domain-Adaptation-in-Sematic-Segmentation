@@ -375,6 +375,10 @@ data
 # Log dir
 runs
 
+# checkpoints and tensorboards
+*.pth
+events.*
+
 # images
 /*.png
 /*.jpg

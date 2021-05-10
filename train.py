@@ -4,94 +4,116 @@ import numpy as np
 import torch
 import tqdm
 from tensorboardX import SummaryWriter
-from torch.utils.data import DataLoader
 
-from dataset.CamVid import CamVid
+from dataset import get_data_loaders
 from model import BiSeNet
-from utils import load_args
-from utils import poly_lr_scheduler, reverse_one_hot, global_accuracy, get_confusion_matrix, DiceLoss
+from utils import load_args, poly_lr_scheduler, DiceLoss
 from eval import validate
 
 
-def train(args, model, optimizer, dataloader_train, dataloader_val, csv_path):
+def train(args, model, optimizer, criterion, dataloader_train, dataloader_val, csv_path):
+    """
+    Training loop for the model.
+
+    Args:
+        args: command line arguments.
+        model: PyTorch model to train.
+        optimizer: Optimizer to use during training.
+        criterion: Loss function.
+        dataloader_train: Dataloader for training data.
+        dataloader_val: Dataloader for validation data.
+        csv_path: path to csv metadata
+
+    Returns:
+        Nothing
+    """
     writer = SummaryWriter(comment=''.format(args.optimizer, args.context_path))
-    if args.loss == 'dice':
-        loss_func = DiceLoss()
-    elif args.loss == 'crossentropy':
-        loss_func = torch.nn.CrossEntropyLoss()
-    max_miou = 0
+
+    # initialize temp variables
+    best_mean_iou = 0
     step = 0
+
+    # Epoch loop
     for epoch in range(args.num_epochs):
+        # Get learning rate
         lr = poly_lr_scheduler(optimizer, starting_lr=args.learning_rate, current_iter=epoch, max_iter=args.num_epochs)
+
+        # Set model to Train mode
         model.train()
+
+        # Progress bar
         tq = tqdm.tqdm(total=len(dataloader_train) * args.batch_size)
         tq.set_description('epoch %d, lr %f' % (epoch, lr))
+
         loss_record = []
+        # Batch loop
         for i, (data, label) in enumerate(dataloader_train):
-            if torch.cuda.is_available() and args.use_gpu:
+            # Move images to gpu
+            if args.use_gpu:
                 data = data.cuda()
                 label = label.cuda()
+
+            # Get network output
             output, output_sup1, output_sup2 = model(data)
-            loss1 = loss_func(output, label)
-            loss2 = loss_func(output_sup1, label)
-            loss3 = loss_func(output_sup2, label)
+
+            # Loss
+            loss1 = criterion(output, label)
+            loss2 = criterion(output_sup1, label)
+            loss3 = criterion(output_sup2, label)
             loss = loss1 + loss2 + loss3
-            tq.update(args.batch_size)
-            tq.set_postfix(loss='%.6f' % loss)
-            optimizer.zero_grad()
+
+            # Clear optimizer gradient in an efficient way
+            optimizer.zero_grad(set_to_none=True)
+
+            # Compute gradients
             loss.backward()
+
+            # Back-propagate gradients
             optimizer.step()
+
+            # Logging & progress bar
             step += 1
             writer.add_scalar('loss_step', loss, step)
             loss_record.append(loss.item())
+
+            tq.update(args.batch_size)
+            tq.set_postfix(loss='%.6f' % loss)
+
+        # Logging & progress bar
         tq.close()
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
-        print('loss for train : %f' % (loss_train_mean))
-        if epoch % args.checkpoint_step == 0 and epoch != 0:
-            if not os.path.isdir(args.save_model_path):
-                os.mkdir(args.save_model_path)
-            torch.save(model.module.state_dict(),
-                       os.path.join(args.save_model_path, 'latest_dice_loss.pth'))
+        print('loss for train : %.3f' % loss_train_mean)
 
-        if epoch % args.validation_step == 0:
-            precision, miou = validate(args, model, dataloader_val, csv_path)
-            if miou > max_miou:
-                max_miou = miou
-                torch.save(model.module.state_dict(),
-                           os.path.join(args.save_model_path, 'best_dice_loss.pth'))
+        # Checkpointing
+        if (epoch + 1) % args.checkpoint_step == 0 or epoch == args.num_epochs:
+            # Build output dir
+            os.makedirs(args.save_model_path, exist_ok=True)
+            # Save weights
+            torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest_dice_loss.pth'))
+
+        # Validation step
+        if (epoch + 1) % args.validation_step == 0 or epoch == args.num_epochs:
+            precision, mean_iou = validate(args, model, dataloader_val, csv_path)
+            # Save model if has better accuracy
+            if mean_iou > best_mean_iou:
+                best_mean_iou = mean_iou
+                # Build output dir
+                os.makedirs(args.save_model_path, exist_ok=True)
+                torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best_dice_loss.pth'))
+
+            # Tensorboard Logging
             writer.add_scalar('epoch/precision_val', precision, epoch)
-            writer.add_scalar('epoch/miou val', miou, epoch)
+            writer.add_scalar('epoch/miou val', mean_iou, epoch)
 
 
 def main():
     # Read command line arguments
     args = load_args()
-
-    # create dataset and dataloader
-    train_path = [os.path.join(args.data, 'train'), os.path.join(args.data, 'val')]
-    train_label_path = [os.path.join(args.data, 'train_labels'), os.path.join(args.data, 'val_labels')]
-    test_path = os.path.join(args.data, 'test')
-    test_label_path = os.path.join(args.data, 'test_labels')
     csv_path = os.path.join(args.data, 'class_dict.csv')
-    dataset_train = CamVid(train_path, train_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
-                           loss=args.loss)
-    dataloader_train = DataLoader(
-        dataset_train,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=args.num_workers,
-        drop_last=True
-    )
-    dataset_val = CamVid(test_path, test_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
-                         loss=args.loss)
-    dataloader_val = DataLoader(
-        dataset_val,
-        # this has to be 1
-        batch_size=1,
-        shuffle=True,
-        num_workers=args.num_workers
-    )
+
+    # Get dataloader structures
+    dataloader_train, dataloader_val = get_data_loaders(args)
 
     # build model
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
@@ -104,22 +126,26 @@ def main():
         optimizer = torch.optim.RMSprop(model.parameters(), args.learning_rate)
     elif args.optimizer == 'sgd':
         optimizer = torch.optim.SGD(model.parameters(), args.learning_rate, momentum=0.9, weight_decay=1e-4)
-    elif args.optimizer == 'adam':
+    else:  # adam
         optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
-    else:  # rmsprop
-        print('not supported optimizer \n')
-        return None
 
     # load pretrained model if exists
-    if args.pretrained_model_path is not None:
+    if args.pretrained_model_path:
         print('load model from %s ...' % args.pretrained_model_path)
         model.module.load_state_dict(torch.load(args.pretrained_model_path))
         print('Done!')
 
-    # train
-    train(args, model, optimizer, dataloader_train, dataloader_val, csv_path)
+    # Loss function
+    if args.loss == 'dice':
+        criterion = DiceLoss()
+    else:  # crossentropy
+        criterion = torch.nn.CrossEntropyLoss()
 
-    # val(args, model, dataloader_val, csv_path)
+    # Enable cuDNN auto-tuner
+    torch.backends.cudnn.benchmark = True
+
+    # train
+    train(args, model, optimizer, criterion, dataloader_train, dataloader_val, csv_path)
 
 
 if __name__ == '__main__':

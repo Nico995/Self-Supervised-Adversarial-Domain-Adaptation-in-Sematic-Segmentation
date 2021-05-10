@@ -117,3 +117,46 @@ class CamVid(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.image_list)
+
+
+def get_data_loaders(args):
+    """
+    Build dataloader structures for train and validation
+
+    Args:
+        args: command line arguments
+
+    Returns:
+        dataloader structures for train and validation
+    """
+
+    # Build paths
+    train_path = [os.path.join(args.data, 'train'), os.path.join(args.data, 'val')]
+    train_label_path = [os.path.join(args.data, 'train_labels'), os.path.join(args.data, 'val_labels')]
+
+    test_path = os.path.join(args.data, 'test')
+    test_label_path = os.path.join(args.data, 'test_labels')
+
+    csv_path = os.path.join(args.data, 'class_dict.csv')
+
+    # Train Dataloader
+    dataset_train = CamVid(train_path, train_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
+                           loss=args.loss)
+    dataloader_train = DataLoader(
+        dataset_train,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        drop_last=True,
+    )
+
+    # Val Dataloader
+    dataset_val = CamVid(test_path, test_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
+                         loss=args.loss)
+    dataloader_val = DataLoader(
+        dataset_val,
+        # this has to be 1
+        batch_size=1,
+        num_workers=args.num_workers,
+    )
+
+    return dataloader_train, dataloader_val
