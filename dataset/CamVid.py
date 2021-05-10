@@ -72,13 +72,7 @@ class CamVid(torch.utils.data.Dataset):
         if not isinstance(label_path, list):
             label_path = [label_path]
         for label_path_ in label_path:
-            if not self.pre_encoded:
-                # Standard labels are .png files
-                self.label_list.extend(glob.glob(os.path.join(label_path_, '*.png')))
-            else:
-                # While pre encoded labels are .npy files
-                self.label_list.extend(glob.glob(os.path.join(label_path_, '*.npy')))
-
+            self.label_list.extend(glob.glob(os.path.join(label_path_, '*.png')))
         self.label_list.sort()
 
         # Transformations
