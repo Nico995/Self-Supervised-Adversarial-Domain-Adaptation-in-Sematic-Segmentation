@@ -9,57 +9,11 @@ from torch.utils.data import DataLoader
 from dataset.CamVid import CamVid
 from model import BiSeNet
 from utils import load_args
-from utils import poly_lr_scheduler, reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, DiceLoss
+from utils import poly_lr_scheduler, reverse_one_hot, global_accuracy, get_confusion_matrix, DiceLoss
+from eval import validate
 
 
-def val(args, model, dataloader):
-    print('start val!')
-    # label_info = get_label_info(csv_path)
-    with torch.no_grad():
-        model.eval()
-        precision_record = []
-        hist = np.zeros((args.num_classes, args.num_classes))
-        for i, (data, label) in enumerate(dataloader):
-            if torch.cuda.is_available() and args.use_gpu:
-                data = data.cuda()
-                label = label.cuda()
-
-            # get RGB predict image
-            predict = model(data).squeeze()
-            predict = reverse_one_hot(predict)
-            predict = np.array(predict)
-
-            # get RGB label image
-            label = label.squeeze()
-            if args.loss == 'dice':
-                label = reverse_one_hot(label)
-            label = np.array(label)
-
-            # compute per pixel accuracy
-
-            precision = compute_global_accuracy(predict, label)
-            hist += fast_hist(label.flatten(), predict.flatten(), args.num_classes)
-
-            # there is no need to transform the one-hot array to visual RGB array
-            # predict = colour_code_segmentation(np.array(predict), label_info)
-            # label = colour_code_segmentation(np.array(label), label_info)
-            precision_record.append(precision)
-        precision = np.mean(precision_record)
-        # miou = np.mean(per_class_iu(hist))
-        miou_list = per_class_iu(hist)[:-1]
-        # miou_dict, miou = cal_miou(miou_list, csv_path)
-        miou = np.mean(miou_list)
-        print('precision per pixel for test: %.3f' % precision)
-        print('mIoU for validation: %.3f' % miou)
-        # miou_str = ''
-        # for key in miou_dict:
-        #     miou_str += '{}:{},\n'.format(key, miou_dict[key])
-        # print('mIoU for each class:')
-        # print(miou_str)
-        return precision, miou
-
-
-def train(args, model, optimizer, dataloader_train, dataloader_val):
+def train(args, model, optimizer, dataloader_train, dataloader_val, csv_path):
     writer = SummaryWriter(comment=''.format(args.optimizer, args.context_path))
     if args.loss == 'dice':
         loss_func = DiceLoss()
@@ -68,7 +22,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
     max_miou = 0
     step = 0
     for epoch in range(args.num_epochs):
-        lr = poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
+        lr = poly_lr_scheduler(optimizer, starting_lr=args.learning_rate, current_iter=epoch, max_iter=args.num_epochs)
         model.train()
         tq = tqdm.tqdm(total=len(dataloader_train) * args.batch_size)
         tq.set_description('epoch %d, lr %f' % (epoch, lr))
@@ -101,7 +55,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                        os.path.join(args.save_model_path, 'latest_dice_loss.pth'))
 
         if epoch % args.validation_step == 0:
-            precision, miou = val(args, model, dataloader_val)
+            precision, miou = validate(args, model, dataloader_val, csv_path)
             if miou > max_miou:
                 max_miou = miou
                 torch.save(model.module.state_dict(),
@@ -163,7 +117,7 @@ def main():
         print('Done!')
 
     # train
-    train(args, model, optimizer, dataloader_train, dataloader_val)
+    train(args, model, optimizer, dataloader_train, dataloader_val, csv_path)
 
     # val(args, model, dataloader_val, csv_path)
 
