@@ -40,7 +40,7 @@ class CamVid(torch.utils.data.Dataset):
     Custom dataset class to manage images and labels
     """
 
-    def __init__(self, image_path, label_path, csv_path, image_size, loss='dice'):
+    def __init__(self, image_path, label_path, csv_path, image_size, loss='dice', pre_encoded=False):
         """
 
         Args:
@@ -55,7 +55,7 @@ class CamVid(torch.utils.data.Dataset):
         self.image_size = image_size
         self.loss = loss
         self.scales = [0.5, 1, 1.25, 1.5, 1.75, 2]
-
+        self.pre_encoded = pre_encoded
         # Read metadata
         self.label_info = get_label_info(csv_path)
 
@@ -72,7 +72,11 @@ class CamVid(torch.utils.data.Dataset):
         if not isinstance(label_path, list):
             label_path = [label_path]
         for label_path_ in label_path:
-            self.label_list.extend(glob.glob(os.path.join(label_path_, '*.png')))
+            if not self.pre_encoded:
+                self.label_list.extend(glob.glob(os.path.join(label_path_, '*.png')))
+            else:
+                self.label_list.extend(glob.glob(os.path.join(label_path_, '*.npy')))
+
         self.label_list.sort()
 
         # Transformations
@@ -97,21 +101,29 @@ class CamVid(torch.utils.data.Dataset):
         image = RandomCrop(self.image_size, seed, pad_if_needed=True)(image)
         image = self.normalize(image).float()
 
-        # Read labels and transform
-        label = Image.open(self.label_list[index])
-        label = Resize(scaled_image_size)(label)
-        label = RandomCrop(self.image_size, seed, pad_if_needed=True)(label)
+        # Read encode and transform label
+        if not self.pre_encoded:
+            # Labels are standard rgb images
+            label = Image.open(self.label_list[index])
+            label = Resize(scaled_image_size)(label)
+            label = RandomCrop(self.image_size, seed, pad_if_needed=True)(label)
 
-        # Encode label
-        if self.loss == 'dice':
-            # Encode label image
-            label = encode_label_dice(label, self.label_info).astype(np.uint8)
-            label = torch.from_numpy(label)
+            # Encode label
+            if self.loss == 'dice':
+                # Encode label image
+                label = encode_label_dice(label, self.label_info).astype(np.uint8)
+                label = torch.from_numpy(label)
 
-        elif self.loss == 'crossentropy':
-            # Encode label image
-            label = encode_label_crossentropy(label, self.label_info).astype(np.uint8)
-            label = torch.from_numpy(label).long()
+            elif self.loss == 'crossentropy':
+                # Encode label image
+                label = encode_label_crossentropy(label, self.label_info).astype(np.uint8)
+                label = torch.from_numpy(label).long()
+        else:
+            # Labels are numpy.ndarrays
+            label = np.load(self.label_list[index])
+            label = torch.tensor(label)
+            label = Resize(scaled_image_size)(label)
+            label = RandomCrop(self.image_size, seed, pad_if_needed=True)(label)
 
         return image, label
 
@@ -141,7 +153,7 @@ def get_data_loaders(args):
 
     # Train Dataloader
     dataset_train = CamVid(train_path, train_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
-                           loss=args.loss)
+                           loss=args.loss, pre_encoded=args.pre_encoded)
     dataloader_train = DataLoader(
         dataset_train,
         batch_size=args.batch_size,
@@ -151,7 +163,7 @@ def get_data_loaders(args):
 
     # Val Dataloader
     dataset_val = CamVid(test_path, test_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
-                         loss=args.loss)
+                         loss=args.loss, pre_encoded=args.pre_encoded)
     dataloader_val = DataLoader(
         dataset_val,
         # this has to be 1
