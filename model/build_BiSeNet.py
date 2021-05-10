@@ -4,6 +4,9 @@ from torch.nn.functional import interpolate
 
 from model.build_contextpath import build_context_path
 
+import warnings
+warnings.filterwarnings(action='ignore')
+
 
 class ConvBlock(torch.nn.Module):
     """
