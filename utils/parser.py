@@ -4,9 +4,9 @@ import argparse
 def load_args():
     # basic parameters
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_epochs', type=int, default=200, help='Number of epochs to train for')
+    parser.add_argument('--num_epochs', type=int, default=50, help='Number of epochs to train for')
     parser.add_argument('--epoch_start_i', type=int, default=0, help='Start counting epochs from this number')
-    parser.add_argument('--checkpoint_step', type=int, default=50, help='How often to save checkpoints (epochs)')
+    parser.add_argument('--checkpoint_step', type=int, default=20, help='How often to save checkpoints (epochs)')
     parser.add_argument('--validation_step', type=int, default=1, help='How often to perform validation (epochs)')
     parser.add_argument('--dataset', type=str, default="CamVid", help='Dataset you are using.')
     parser.add_argument('--crop_height', type=int, default=720, help='Height of cropped/resized input image to network')
