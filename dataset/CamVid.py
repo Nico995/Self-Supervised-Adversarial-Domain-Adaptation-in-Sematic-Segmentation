@@ -7,7 +7,7 @@ from PIL import Image
 
 import torch
 from torch.utils.data import DataLoader
-from torchvision.transforms import Compose, Normalize, ToTensor, RandomResizedCrop
+from torchvision.transforms import Compose, Normalize, ToTensor, RandomResizedCrop, Resize, RandomCrop
 
 from utils import encode_label_crossentropy, encode_label_dice, get_label_info
 
@@ -43,6 +43,7 @@ class CamVid(torch.utils.data.Dataset):
         super().__init__()
         self.image_size = image_size
         self.loss = loss
+        self.scales = [0.5, 1, 1.25, 1.5, 1.75, 2]
 
         # Read metadata
         self.label_info = get_label_info(csv_path)
@@ -64,28 +65,31 @@ class CamVid(torch.utils.data.Dataset):
         self.label_list.sort()
 
         # Transformations
-        self.image_trans = Compose([
-            RandomResizedCrop(self.image_size, (0.5, 2)),
+        self.normalize = Compose([
             ToTensor(),
             Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-        ])
-        self.label_trans = Compose([
-            RandomResizedCrop(self.image_size, (0.5, 2)),
         ])
 
     def __getitem__(self, index):
         # Seed transformations (have to be the same random crop for image and label)
-        seed = random.random()
-        torch.random.manual_seed(int(seed))
+        seed = int(random.random())
+        torch.random.manual_seed(seed)
         random.seed(seed)
+
+        # Choose a random scale
+        random_scale = random.choice(self.scales)
+        scaled_image_size = (int(self.image_size[0] * random_scale), int(self.image_size[1] * random_scale))
 
         # Read images and transform
         image = Image.open(self.image_list[index])
-        image = self.image_trans(image).float()
+        image = Resize(scaled_image_size)(image)
+        image = RandomCrop(self.image_size, seed, pad_if_needed=True)(image)
+        image = self.normalize(image).float()
 
         # Read labels and transform
         label = Image.open(self.label_list[index])
-        label = np.array(self.label_trans(label))
+        label = Resize(scaled_image_size)(label)
+        label = RandomCrop(self.image_size, seed, pad_if_needed=True)(label)
 
         if self.loss == 'dice':
             # Encode label image
