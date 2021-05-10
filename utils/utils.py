@@ -143,6 +143,7 @@ def encode_label_dice(label, label_info):
     ohe_image = np.roll(np.moveaxis(ohe_image, -1, 0), shift=-1, axis=0)
     return ohe_image
 
+
 def reverse_one_hot(image):
     """
     Transform a 2D array in one-hot format (depth is num_classes),
@@ -162,40 +163,79 @@ def reverse_one_hot(image):
     return x
 
 
-def compute_global_accuracy(pred, label):
+def global_accuracy(pred, label):
+    """
+    Compute Pixel Accuracy metric, i.e. the percentage of corresponding pixels between the prediction and the label.
+
+    Args:
+        pred (tensor): Predicted segmentation from Model.
+        label (tensor): Label image from Dataloader.
+
+    Returns:
+        Per pixel accuracy
+    """
+
     pred = pred.flatten()
     label = label.flatten()
+
     total = len(label)
-    count = 0.0
-    for i in range(total):
-        if pred[i] == label[i]:
-            count = count + 1.0
+    count = (pred == label).sum()
     return float(count) / float(total)
 
 
-def fast_hist(a, b, n):
+def get_confusion_matrix(pred, label, num_classes):
+    """
+    Computes the confusion matrix
+
+    Args:
+        pred: Predicted segmentation from Model.
+        label: Label image from Dataloader.
+        num_classes: Total classes for the current classification task.
+
+    Returns:
+        Confusion matrix
+    """
+    # Mask for pixels which have a class non void
+    mask = (label >= 0) & (label < num_classes)
+
+    # Computes the confusion matrix for the classes
+    return np.bincount(
+        num_classes * label[mask] + pred[mask],
+        minlength=num_classes ** 2
+    ).reshape(num_classes, num_classes)
+
+
+def intersection_over_union(matrix, metadata, epsilon=1e-5):
+    """
+    Computes Per-Class Intersection-Over-Union metric. (Jaccard Index)
+    IoU computes the ratio between the:
+        - intersection (of prediction and truth, for class C): number of pixels assigned to class C in both images.
+    and the
+        - union (of prediction and truth, fod class C): number of pixel assigned to class C in either images - inters.
+
+    Args:
+        matrix (np.array): Confusion matrix of the prediction with respect to the label.
+        metadata (str): Path for metedata csv
+        epsilon (float): small value used to avoid divisions by 0, in case the class is not present in the prediction.
+    Returns:
+        Per-Class Intersection-Over-Union
+        Mean Per-Class Intersection-Over-Union
+    """
+
     '''
-    a and b are predict and mask respectively
-    n is the number of classes
+    - Numerator: torch.diag(confusion_matrix):
+        On the diagonal of the conf matrix we have the correctly classified pixels byt both images (->intersection)
+    - Denominator: matrix.sum(1) - np.diag(confusion_matrix) + epsilon
+        Sum of the pixel classified as C by either images (-> union)(sum 1) minus the intersection
+        
+    In both cases, epsilon is used to avoid numerical overflow.
     '''
-    k = (a >= 0) & (a < n)
-    return np.bincount(n * a[k].astype(int) + b[k], minlength=n ** 2).reshape(n, n)
 
+    correct_per_class = np.diag(matrix)
+    total_per_class = matrix.sum(axis=1)
+    ious = (correct_per_class + epsilon) / (2 * total_per_class - correct_per_class + epsilon)
 
-def per_class_iu(hist):
-    epsilon = 1e-5
-    return (np.diag(hist) + epsilon) / (hist.sum(1) + hist.sum(0) - np.diag(hist) + epsilon)
+    df = pd.read_csv(metadata)
+    names = df.loc[df["class_11"] == 1, "name"]
 
-
-def cal_miou(miou_list, csv_path):
-    # return label -> {label_name: [r_value, g_value, b_value, ...}
-    ann = pd.read_csv(csv_path)
-    miou_dict = {}
-    cnt = 0
-    for iter, row in ann.iterrows():
-        label_name = row['name']
-        class_11 = int(row['class_11'])
-        if class_11 == 1:
-            miou_dict[label_name] = miou_list[cnt]
-            cnt += 1
-    return miou_dict, np.mean(miou_list)
+    return zip(names, ious), np.mean(ious)
