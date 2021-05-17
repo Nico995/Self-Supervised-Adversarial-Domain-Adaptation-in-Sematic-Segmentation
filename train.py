@@ -69,17 +69,17 @@ def train(args, model, optimizer, criterion, scaler, dataloader_train, dataloade
             optimizer.zero_grad(set_to_none=True)
 
             # Compute gradients with gradient scaler
-            scaler.scale(loss).backward()
+            # scaler.scale(loss).backward()
 
             # Compute gradients
-            # loss.backward()
+            loss.backward()
 
-            scaler.step(optimizer)
+            # scaler.step(optimizer)
             # Updates the scale for next iteration.
-            scaler.update()
+            # scaler.update()
 
             # Back-propagate gradients
-            # optimizer.step()
+            optimizer.step()
 
             # Logging & progress bar
             step += 1
