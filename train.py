@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import tqdm
 from tensorboardX import SummaryWriter
+from torch.cuda.amp import autocast
 
 from dataset import get_data_loaders
 from model import BiSeNet
@@ -11,7 +12,7 @@ from utils import load_args, poly_lr_scheduler, DiceLoss
 from eval import validate
 
 
-def train(args, model, optimizer, criterion, dataloader_train, dataloader_val, csv_path):
+def train(args, model, optimizer, criterion, scaler, dataloader_train, dataloader_val, csv_path):
     """
     Training loop for the model.
 
@@ -20,6 +21,7 @@ def train(args, model, optimizer, criterion, dataloader_train, dataloader_val, c
         model: PyTorch model to train.
         optimizer: Optimizer to use during training.
         criterion: Loss function.
+        scaler: Gradient scaler, necessary to train with AMP.
         dataloader_train: Dataloader for training data.
         dataloader_val: Dataloader for validation data.
         csv_path: path to csv metadata
@@ -53,23 +55,31 @@ def train(args, model, optimizer, criterion, dataloader_train, dataloader_val, c
                 data = data.cuda()
                 label = label.cuda()
 
-            # Get network output
-            output, output_sup1, output_sup2 = model(data)
+            with autocast():
+                # Get network output
+                output, output_sup1, output_sup2 = model(data)
 
-            # Loss
-            loss1 = criterion(output, label)
-            loss2 = criterion(output_sup1, label)
-            loss3 = criterion(output_sup2, label)
-            loss = loss1 + loss2 + loss3
+                # Loss
+                loss1 = criterion(output, label)
+                loss2 = criterion(output_sup1, label)
+                loss3 = criterion(output_sup2, label)
+                loss = loss1 + loss2 + loss3
 
             # Clear optimizer gradient in an efficient way
             optimizer.zero_grad(set_to_none=True)
 
+            # Compute gradients with gradient scaler
+            scaler.scale(loss).backward()
+
             # Compute gradients
-            loss.backward()
+            # loss.backward()
+
+            scaler.step(optimizer)
+            # Updates the scale for next iteration.
+            scaler.update()
 
             # Back-propagate gradients
-            optimizer.step()
+            # optimizer.step()
 
             # Logging & progress bar
             step += 1
@@ -80,10 +90,11 @@ def train(args, model, optimizer, criterion, dataloader_train, dataloader_val, c
             tq.set_postfix(loss='%.6f' % loss)
 
         # Logging & progress bar
-        tq.close()
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
-        print('loss for train : %.3f' % loss_train_mean)
+
+        tq.set_postfix(mean_loss='%.6f' % loss_train_mean)
+        tq.close()
 
         # Checkpointing
         if (epoch + 1) % args.checkpoint_step == 0 or epoch == args.num_epochs:
@@ -144,8 +155,11 @@ def main():
     # Enable cuDNN auto-tuner
     torch.backends.cudnn.benchmark = True
 
+    # Add Gradscaler to prevent gradient underflowing under mixed precision training
+    scaler = torch.cuda.amp.GradScaler()
+
     # train
-    train(args, model, optimizer, criterion, dataloader_train, dataloader_val, csv_path)
+    train(args, model, optimizer, criterion, scaler, dataloader_train, dataloader_val, csv_path)
 
 
 if __name__ == '__main__':
