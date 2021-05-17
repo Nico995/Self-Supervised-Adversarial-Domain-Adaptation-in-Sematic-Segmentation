@@ -27,20 +27,21 @@ if __name__ == '__main__':
 
     # build model
     model = BiSeNet(args.num_classes, args.context_path).cuda()
-    model.load_state_dict(torch.load("checkpoints_18_sgd/latest_dice_loss.pth"))
+    model.load_state_dict(torch.load("runs_data/50epochs-resnet101_2/latest_dice_loss.pth"))
     model.eval()
 
     print(len(dataloader_val))
     for i, (data, label) in enumerate(dataloader_val):
+        fig, ax = plt.subplots(1, 2)
+        ax = ax.ravel()
         label, data = label.cuda(), data.cuda()
         predict = model(data)
         predict_image = convert_class_to_color(reverse_one_hot(predict[0]))
-        plt.imshow(predict_image)
-        plt.title("predicted1")
-        plt.show()
+        ax[0].imshow(predict_image)
+        ax[0].set_title("predicted")
 
         label_image = convert_class_to_color(reverse_one_hot(label[0]))
-        plt.imshow(label_image)
-        plt.title("label")
+        ax[1].imshow(label_image)
+        ax[1].set_title("label")
         plt.show()
         exit()
