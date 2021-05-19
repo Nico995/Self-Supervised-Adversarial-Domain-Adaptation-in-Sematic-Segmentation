@@ -80,10 +80,11 @@ def train(args, model, optimizer, criterion, dataloader_train, dataloader_val, c
             tq.set_postfix(loss='%.6f' % loss)
 
         # Logging & progress bar
-        tq.close()
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
-        print('loss for train : %.3f' % loss_train_mean)
+
+        tq.set_postfix(mean_loss='%.6f' % loss_train_mean)
+        tq.close()
 
         # Checkpointing
         if (epoch + 1) % args.checkpoint_step == 0 or epoch == args.num_epochs:
