@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     # build model
     model = BiSeNet(args.num_classes, args.context_path).cuda()
-    model.load_state_dict(torch.load("runs_data/50epochs-resnet101_2/latest_dice_loss.pth"))
+    model.load_state_dict(torch.load(args.pretrained_model_path))
     model.eval()
 
     print(len(dataloader_val))
