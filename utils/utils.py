@@ -98,6 +98,25 @@ def encode_label_crossentropy(label, label_info, void_index=11):
     return ohe_image
 
 
+def encode_label_idda_dice(label):
+    class_map = [11, 1, 4, 11, 5, 3, 6, 6, 7, 10, 2, 11, 8, 11, 11, 11, 0, 11, 11, 11, 9, 11, 11, 11, 1, 11, 11]
+
+    # Convert PIL.Image to np.array
+    label = np.array(label.convert('RGB'))
+
+    # Build the first layer of the encoded image (void class)
+    ohe_image = np.zeros(label.shape[:2] + (12,))
+
+    idda_classes = 27
+
+    for i in range(idda_classes):
+        depth_class_color = (i, 0, 0)
+        class_mask = np.equal(label, depth_class_color).all(axis=2)
+        ohe_image[:, :, class_map[i]] += np.ones(class_mask.shape) * class_mask
+
+    return ohe_image
+
+
 def encode_label_dice(label, label_info):
     """
     Encodes the label images for Dice Loss.
@@ -253,7 +272,7 @@ def seed_worker(worker_id):
     Returns:
         Nothing
     """
-    worker_seed = torch.initial_seed() % 2**32
+    worker_seed = torch.initial_seed() % 2 ** 32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
