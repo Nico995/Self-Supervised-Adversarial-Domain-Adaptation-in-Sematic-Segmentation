@@ -26,9 +26,9 @@ class ColorDistortion(object):
         self.s = strength
 
     def __call__(self, img):
-        color_jitter = ColorJitter(0.2 * self.s, 0.2 * self.s, 0.2 * self.s, 0.1 * self.s)
+        color_jitter = ColorJitter(0.4 * self.s, 0.4 * self.s, 0.4 * self.s, 0.1 * self.s)
         rnd_color_jitter = RandomApply([color_jitter], p=0.8)
-        rnd_gray = RandomGrayscale(p=0.2)
+        rnd_gray = RandomGrayscale(p=0.1)
         color_distort = Compose([rnd_color_jitter, rnd_gray])
         a = color_distort(img)
 
