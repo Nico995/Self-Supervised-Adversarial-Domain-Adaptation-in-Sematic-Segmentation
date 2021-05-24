@@ -9,21 +9,21 @@ from model import BiSeNet
 from utils import load_args, reverse_one_hot, convert_class_to_color
 
 if __name__ == '__main__':
-
+    seed = 41
     # Reproducibility
     # seed the RNG for all devices (both CPU and CUDA)
-    torch.manual_seed(42)
+    torch.manual_seed(seed)
     # python seed
-    random.seed(42)
+    random.seed(seed)
     # seed the global NumPy RNG
-    np.random.seed(42)
+    np.random.seed(seed)
 
     # Read command line arguments
     args = load_args()
 
     # Get dataloader structures
 
-    _, dataloader_val = get_data_loaders(args)
+    _, dataloader_val = get_data_loaders(args, shuffle=True)
 
     # build model
     model = BiSeNet(args.num_classes, args.context_path).cuda()
