@@ -3,7 +3,7 @@ import glob
 import os
 import numpy as np
 from PIL import Image
-from utils import encode_label_dice, get_label_info
+from utils import encode_label_idda_dice, get_label_info, encode_label_dice
 import tqdm
 
 
@@ -13,6 +13,7 @@ def main():
     parser.add_argument('--data', type=str, default='data/CamVid/', help='path of training data')
     parser.add_argument('--loss', type=str, default='dice', help='loss function, dice or crossentropy')
     parser.add_argument('--label_info', type=str, default='data/CamVid/class_dict.csv', help='metadata path')
+    parser.add_argument('--dataset', type=str, default="CamVid", help='Dataset you are using.')
 
     args = parser.parse_args()
 
@@ -24,8 +25,14 @@ def main():
 
         for label_file in labels_list:
             label = Image.open(label_file)
-            label_prepared = encode_label_dice(label, get_label_info(args.label_info))
-            np.save(label_file.split(".")[0], label_prepared)
+            if args.data == "CamVid":
+                label_prepared = encode_label_dice(label, get_label_info(args.label_info))
+                filename = label_file.split(".")[0]
+            else:  # args.data == "IDDA"
+                label_prepared = encode_label_idda_dice(label)
+                filename = ".".join(label_file.split(".")[:-1])
+
+            np.savez_compressed(filename, a=label_prepared)
             tq.update(1)
 
         tq.close()
