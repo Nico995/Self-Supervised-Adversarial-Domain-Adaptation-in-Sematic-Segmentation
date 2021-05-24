@@ -2,6 +2,9 @@ import glob
 import os
 import random
 
+import matplotlib.pyplot as plt
+from torchvision.transforms import functional as F
+
 import numpy as np
 import torch
 from PIL import Image
@@ -9,6 +12,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Normalize, ToTensor, RandomCrop, Resize
 
 from utils import encode_label_crossentropy, encode_label_dice, get_label_info
+from utils.custom_transforms import RandomGaussianBlur, ColorDistortion
 
 
 class ToChannelLast(object):
@@ -40,7 +44,7 @@ class CamVid(torch.utils.data.Dataset):
     Custom dataset class to manage images and labels
     """
 
-    def __init__(self, image_path, label_path, csv_path, image_size, loss='dice', pre_encoded=False):
+    def __init__(self, image_path, label_path, csv_path, image_size, mode='train', loss='dice', pre_encoded=False):
         """
 
         Args:
@@ -56,6 +60,9 @@ class CamVid(torch.utils.data.Dataset):
         self.loss = loss
         self.scales = [0.5, 1, 1.25, 1.5, 1.75, 2]
         self.pre_encoded = pre_encoded
+
+        self.mode = mode
+
         # Read metadata
         self.label_info = get_label_info(csv_path)
 
@@ -82,8 +89,10 @@ class CamVid(torch.utils.data.Dataset):
         # Transformations
         self.normalize = Compose([
             ToTensor(),
-            Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+            Normalize((0.39068785, 0.40521392, 0.41434407), (0.29652068, 0.30514979, 0.30080369)),
         ])
+
+        self.augment = Compose([ColorDistortion(), RandomGaussianBlur()])
 
     def __getitem__(self, index):
         # Seed transformations (have to be the same random crop for image and label)
@@ -99,7 +108,6 @@ class CamVid(torch.utils.data.Dataset):
         image = Image.open(self.image_list[index])
         image = Resize(scaled_image_size)(image)
         image = RandomCrop(self.image_size, seed, pad_if_needed=True)(image)
-        image = self.normalize(image).float()
 
         # Read encode and transform label
         if not self.pre_encoded:
@@ -121,17 +129,27 @@ class CamVid(torch.utils.data.Dataset):
         else:
             # Labels are numpy.ndarrays
             label = np.load(self.label_list[index])
+
             label = torch.tensor(label)
             label = Resize(scaled_image_size)(label)
             label = RandomCrop(self.image_size, seed, pad_if_needed=True)(label)
 
+        flip = torch.rand(1)
+
+        if flip < 0.75:
+            image = F.hflip(image)
+            label = F.hflip(label)
+
+        # image = self.augment(image)
+
+        image = self.normalize(image).float()
         return image, label
 
     def __len__(self):
         return len(self.image_list)
 
 
-def get_data_loaders(args):
+def get_data_loaders(args, shuffle=False):
     """
     Build dataloader structures for train and validation
 
@@ -150,7 +168,6 @@ def get_data_loaders(args):
     test_label_path = os.path.join(args.data, 'test_labels')
 
     csv_path = os.path.join(args.data, 'class_dict.csv')
-
     # Train Dataloader
     dataset_train = CamVid(train_path, train_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
                            loss=args.loss, pre_encoded=args.pre_encoded)
@@ -159,16 +176,18 @@ def get_data_loaders(args):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         drop_last=True,
+        shuffle=shuffle
     )
 
     # Val Dataloader
     dataset_val = CamVid(test_path, test_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
-                         loss=args.loss, pre_encoded=args.pre_encoded)
+                         loss=args.loss, mode='val', pre_encoded=args.pre_encoded)
     dataloader_val = DataLoader(
         dataset_val,
         # this has to be 1
         batch_size=1,
         num_workers=args.num_workers,
+        shuffle=shuffle
     )
 
     return dataloader_train, dataloader_val
