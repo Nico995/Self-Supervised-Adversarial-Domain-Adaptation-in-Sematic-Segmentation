@@ -3,8 +3,11 @@ import os
 import numpy as np
 import torch
 import tqdm
+
+from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts
+
 from tensorboardX import SummaryWriter
-from torch.cuda.amp import autocast
+from torch.cuda.amp import autocast, GradScaler
 
 from dataset import get_data_loaders
 from model import BiSeNet
@@ -12,7 +15,7 @@ from utils import load_args, poly_lr_scheduler, DiceLoss
 from eval import validate
 
 
-def train(args, model, optimizer, criterion, scaler, dataloader_train, dataloader_val, csv_path):
+def train(args, model, optimizer, criterion, scaler, scheduler, dataloader_train, dataloader_val, csv_path):
     """
     Training loop for the model.
 
@@ -38,22 +41,26 @@ def train(args, model, optimizer, criterion, scaler, dataloader_train, dataloade
     # Epoch loop
     for epoch in range(args.num_epochs):
         # Get learning rate
-        lr = poly_lr_scheduler(optimizer, starting_lr=args.learning_rate, current_iter=epoch, max_iter=args.num_epochs)
+        # lr = poly_lr_scheduler(optimizer, starting_lr=args.learning_rate, current_iter=epoch, max_iter=args.num_epochs)
 
         # Set model to Train mode
         model.train()
 
         # Progress bar
         tq = tqdm.tqdm(total=len(dataloader_train) * args.batch_size)
-        tq.set_description('epoch %d, lr %f' % (epoch, lr))
+        tq.set_description('epoch %d, lr %.3f' % (epoch + 1,  scheduler.state_dict()["_last_lr"][0]))
 
         loss_record = []
         # Batch loop
         for i, (data, label) in enumerate(dataloader_train):
+
             # Move images to gpu
             if args.use_gpu:
                 data = data.cuda()
                 label = label.cuda()
+
+            # Clear optimizer gradient in an efficient way
+            optimizer.zero_grad(set_to_none=True)
 
             with autocast():
                 # Get network output
@@ -65,21 +72,18 @@ def train(args, model, optimizer, criterion, scaler, dataloader_train, dataloade
                 loss3 = criterion(output_sup2, label)
                 loss = loss1 + loss2 + loss3
 
-            # Clear optimizer gradient in an efficient way
-            optimizer.zero_grad(set_to_none=True)
-
             # Compute gradients with gradient scaler
-            # scaler.scale(loss).backward()
+            scaler.scale(loss).backward()
 
             # Compute gradients
-            loss.backward()
+            # loss.backward()
 
-            # scaler.step(optimizer)
+            scaler.step(optimizer)
             # Updates the scale for next iteration.
-            # scaler.update()
+            scaler.update()
 
             # Back-propagate gradients
-            optimizer.step()
+            # optimizer.step()
 
             # Logging & progress bar
             step += 1
@@ -88,6 +92,8 @@ def train(args, model, optimizer, criterion, scaler, dataloader_train, dataloade
 
             tq.update(args.batch_size)
             tq.set_postfix(loss='%.6f' % loss)
+
+        scheduler.step()
 
         # Logging & progress bar
         loss_train_mean = np.mean(loss_record)
@@ -136,7 +142,7 @@ def main():
     if args.optimizer == 'rmsprop':
         optimizer = torch.optim.RMSprop(model.parameters(), args.learning_rate)
     elif args.optimizer == 'sgd':
-        optimizer = torch.optim.SGD(model.parameters(), args.learning_rate, momentum=0.9, weight_decay=1e-4)
+        optimizer = torch.optim.SGD(model.parameters(), args.learning_rate)
     else:  # adam
         optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
 
@@ -156,10 +162,11 @@ def main():
     torch.backends.cudnn.benchmark = True
 
     # Add Gradscaler to prevent gradient underflowing under mixed precision training
-    scaler = torch.cuda.amp.GradScaler()
+    scaler = GradScaler()
 
+    scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=1, eta_min=0.005)
     # train
-    train(args, model, optimizer, criterion, scaler, dataloader_train, dataloader_val, csv_path)
+    train(args, model, optimizer, criterion, scaler, scheduler, dataloader_train, dataloader_val, csv_path)
 
 
 if __name__ == '__main__':
