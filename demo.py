@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from dataset import camvid_data_loaders
+from dataset import camvid_data_loaders, idda_data_loaders
 from model import BiSeNet
 from utils import load_args, reverse_one_hot, convert_class_to_color
 
@@ -24,7 +24,10 @@ if __name__ == '__main__':
 
     # Get dataloader structures
 
-    _, dataloader_val = camvid_data_loaders(args, shuffle=True)
+    if args.dataset == 'IDDA':
+        _, dataloader_val = idda_data_loaders(args, shuffle=True)
+    else:
+        _, dataloader_val = camvid_data_loaders(args, shuffle=True)
 
     # build model
     model = BiSeNet(args.num_classes, args.context_path).cuda()
@@ -41,7 +44,11 @@ if __name__ == '__main__':
         ax[0].imshow(predict_image)
         ax[0].set_title("predicted")
 
-        label_image = convert_class_to_color(reverse_one_hot(label[0]))
+        if args.dataset == 'IDDA':
+            label = label[0].permute(2, 0, 1)
+            label_image = convert_class_to_color(reverse_one_hot(label))
+        else:
+            label_image = convert_class_to_color(reverse_one_hot(label[0]))
         ax[1].imshow(label_image)
         ax[1].set_title("label")
         plt.show()
