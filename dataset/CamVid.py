@@ -27,18 +27,6 @@ class ToChannelLast(object):
         return image.permute(1, 2, 0)
 
 
-# TODO: Remove and substitute with a Transform into the Compose (GaussianBlur is already implemented in pytorch)
-def augmentation():
-    # augment images with spatial transformation: Flip, Affine, Rotation, etc...
-    # see https://github.com/aleju/imgaug for more details
-    pass
-
-
-def augmentation_pixel():
-    # augment images with pixel intensity transformation: GaussianBlur, Multiply, etc...
-    pass
-
-
 class CamVid(torch.utils.data.Dataset):
     """
     Custom dataset class to manage images and labels
@@ -71,7 +59,7 @@ class CamVid(torch.utils.data.Dataset):
         if not isinstance(image_path, list):
             image_path = [image_path]
         for image_path_ in image_path:
-            self.image_list.extend(glob.glob(os.path.join(image_path_, '*.png')))
+            self.image_list.extend(glob.glob(os.path.join(image_path_, f'*.png')))
         self.image_list.sort()
 
         # Get labels folders paths (as list)
@@ -80,9 +68,9 @@ class CamVid(torch.utils.data.Dataset):
             label_path = [label_path]
         for label_path_ in label_path:
             if not self.pre_encoded:
-                self.label_list.extend(glob.glob(os.path.join(label_path_, '*.png')))
+                self.label_list.extend(glob.glob(os.path.join(label_path_, f'*.png')))
             else:
-                self.label_list.extend(glob.glob(os.path.join(label_path_, '*.npy')))
+                self.label_list.extend(glob.glob(os.path.join(label_path_, f'*.npy')))
 
         self.label_list.sort()
 
@@ -129,7 +117,6 @@ class CamVid(torch.utils.data.Dataset):
         else:
             # Labels are numpy.ndarrays
             label = np.load(self.label_list[index])
-
             label = torch.tensor(label)
             label = Resize(scaled_image_size)(label)
             label = RandomCrop(self.image_size, seed, pad_if_needed=True)(label)
@@ -140,7 +127,8 @@ class CamVid(torch.utils.data.Dataset):
             image = F.hflip(image)
             label = F.hflip(label)
 
-        # image = self.augment(image)
+        if self.mode == 'train':
+            image = self.augment(image)
 
         image = self.normalize(image).float()
         return image, label
@@ -149,7 +137,7 @@ class CamVid(torch.utils.data.Dataset):
         return len(self.image_list)
 
 
-def get_data_loaders(args, shuffle=False):
+def get_data_loaders(args, shuffle=True):
     """
     Build dataloader structures for train and validation
 
@@ -169,8 +157,9 @@ def get_data_loaders(args, shuffle=False):
 
     csv_path = os.path.join(args.data, 'class_dict.csv')
     # Train Dataloader
-    dataset_train = CamVid(train_path, train_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
+    dataset_train = CamVid(train_path, train_label_path, csv_path, (args.crop_height, args.crop_width),
                            loss=args.loss, pre_encoded=args.pre_encoded)
+
     dataloader_train = DataLoader(
         dataset_train,
         batch_size=args.batch_size,
@@ -180,7 +169,7 @@ def get_data_loaders(args, shuffle=False):
     )
 
     # Val Dataloader
-    dataset_val = CamVid(test_path, test_label_path, csv_path, image_size=(args.crop_height, args.crop_width),
+    dataset_val = CamVid(test_path, test_label_path, csv_path, (args.crop_height, args.crop_width),
                          loss=args.loss, mode='val', pre_encoded=args.pre_encoded)
     dataloader_val = DataLoader(
         dataset_val,
