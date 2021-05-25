@@ -55,8 +55,7 @@ def train(args, model, optimizer, criterion, scaler, scheduler, dataloader_train
         loss_record = []
         # Batch loop
         for i, (data, label) in enumerate(dataloader_train):
-            if i == 404:
-                break
+
             # Move images to gpu
             if args.use_gpu:
                 data = data.cuda()
