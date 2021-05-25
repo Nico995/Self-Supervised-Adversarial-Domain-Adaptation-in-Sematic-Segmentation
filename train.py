@@ -9,7 +9,9 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmResta
 from tensorboardX import SummaryWriter
 from torch.cuda.amp import autocast, GradScaler
 
-from dataset import get_data_loaders
+import dataset
+
+from dataset import camvid_data_loaders, idda_data_loaders
 from model import BiSeNet
 from utils import load_args, poly_lr_scheduler, DiceLoss
 from eval import validate
@@ -53,7 +55,8 @@ def train(args, model, optimizer, criterion, scaler, scheduler, dataloader_train
         loss_record = []
         # Batch loop
         for i, (data, label) in enumerate(dataloader_train):
-
+            if i == 404:
+                break
             # Move images to gpu
             if args.use_gpu:
                 data = data.cuda()
@@ -65,7 +68,6 @@ def train(args, model, optimizer, criterion, scaler, scheduler, dataloader_train
             with autocast():
                 # Get network output
                 output, output_sup1, output_sup2 = model(data)
-
                 # Loss
                 loss1 = criterion(output, label)
                 loss2 = criterion(output_sup1, label)
@@ -130,10 +132,12 @@ def main():
     csv_path = os.path.join(args.data, 'class_dict.csv')
 
     # Get dataloader structures
-    dataloader_train, dataloader_val = get_data_loaders(args)
+    if args.dataset == 'CamVid':
+        dataloader_train, dataloader_val = camvid_data_loaders(args)
+    else:
+        dataloader_train, dataloader_val = idda_data_loaders(args)
 
     # build model
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
     model = BiSeNet(args.num_classes, args.context_path)
     if torch.cuda.is_available() and args.use_gpu:
         model = torch.nn.DataParallel(model).cuda()
@@ -145,12 +149,6 @@ def main():
         optimizer = torch.optim.SGD(model.parameters(), args.learning_rate)
     else:  # adam
         optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
-
-    # load pretrained model if exists
-    if args.pretrained_model_path:
-        print('load model from %s ...' % args.pretrained_model_path)
-        model.module.load_state_dict(torch.load(args.pretrained_model_path))
-        print('Done!')
 
     # Loss function
     if args.loss == 'dice':
