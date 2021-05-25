@@ -286,7 +286,10 @@ def convert_class_to_color(img):
     img = img.detach().cpu().numpy()
     for r in range(img.shape[0]):
         for c in range(img.shape[1]):
-            color = class_to_color[img[r, c]]
+            try:
+                color = class_to_color[img[r, c]]
+            except Exception as e:
+                color = 0
             new_img[r, c] = color
 
     return new_img
