@@ -22,7 +22,7 @@ class DiceLoss(nn.Module):
         self.epsilon = 1e-5
 
     def forward(self, output, target):
-        assert output.size() == target.size(), "'input' and 'target' must have the same shape"
+        assert output.shape == target.shape, "'input' and 'target' must have the same shape"
         output = F.softmax(output, dim=1)
         output = flatten(output)
         target = flatten(target)
