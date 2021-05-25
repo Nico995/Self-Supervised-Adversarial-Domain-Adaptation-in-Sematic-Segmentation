@@ -37,6 +37,8 @@ def validate(args, model, dataloader, csv_path):
         confusion_matrix = np.zeros((args.num_classes, args.num_classes))
         # Batch loop
         for i, (data, label) in enumerate(dataloader):
+            if i == 240:
+                break
 
             # Move images to gpu
             if torch.cuda.is_available() and args.use_gpu:
