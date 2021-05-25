@@ -135,11 +135,11 @@ def get_data_loaders(args, shuffle=False):
     """
 
     # Build paths
-    train_path = [os.path.join(args.data, 'train'), os.path.join(args.data, 'val')]
-    train_label_path = [os.path.join(args.data, 'train_labels'), os.path.join(args.data, 'val_labels')]
+    train_path = [os.path.join(args.data, 'train')]
+    train_label_path = [os.path.join(args.data, 'train_labels')]
 
-    test_path = os.path.join(args.data, 'test')
-    test_label_path = os.path.join(args.data, 'test_labels')
+    test_path = os.path.join(args.data, 'val')
+    test_label_path = os.path.join(args.data, 'val_labels')
 
     csv_path = os.path.join(args.data, 'class_dict.csv')
     # Train Dataloader
