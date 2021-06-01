@@ -195,7 +195,6 @@ def global_accuracy(pred, label):
     Returns:
         Per pixel accuracy
     """
-
     pred = pred.flatten()
     label = label.flatten()
 
