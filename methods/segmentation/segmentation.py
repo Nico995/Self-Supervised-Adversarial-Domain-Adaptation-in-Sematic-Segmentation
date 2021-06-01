@@ -24,9 +24,6 @@ def train_segmentation(model, data, label, optimizer, scaler, criterion):
     # Compute gradients with gradient scaler
     scaler.scale(loss).backward()
 
-    # Compute gradients
-    # loss.backward()
-
     scaler.step(optimizer)
     # Updates the scale for next iteration.
     scaler.update()

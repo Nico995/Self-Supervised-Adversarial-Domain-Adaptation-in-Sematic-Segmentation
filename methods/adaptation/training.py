@@ -5,52 +5,16 @@ import torch
 import tqdm
 from tensorboardX import SummaryWriter
 
-from methods import validate_segmentation, train_segmentation
+from methods import train_minent, validate_segmentation
 from utils import intersection_over_union
 
 
 def validation(args, model, dataloader_val, criterion):
-    """
-    This function contains the validation loop
-    """
-
-    # Progress bar
-    tq = tqdm.tqdm(total=len(dataloader_val) * args.batch_size)
-    tq.set_description('test')
-
-    # Metrics initialization
-    running_precision = []
-    running_confusion_matrix = np.zeros((args.num_classes, args.num_classes))
-
-    for i, (data, label) in enumerate(dataloader_val):
-        # Move images to gpu
-        data = data.cuda()
-        label = label.cuda()
-
-        '''
-        This is the actual content of the VALIDATION loop.
-        '''
-        precision, confusion_matrix = validate_segmentation(model, data, label, args.loss, args.num_classes)
-
-        # Store metrics
-        running_confusion_matrix += confusion_matrix
-        running_precision.append(precision)
-
-        # Progress bar
-        tq.update(args.batch_size)
-
-    precision = np.mean(running_precision)
-    per_class_iou, mean_iou = intersection_over_union(confusion_matrix)
-
-    print('Global Precision [eval]: %.3f' % precision)
-    print('Mean IoU [eval]: %.3f' % mean_iou)
-    print('Per Class IoU [eval]: \n', list(per_class_iou))
-    tq.close()
-
-    return precision, mean_iou
+    pass
 
 
-def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, criterion, scheduler):
+def training(args, model, optimizer, source_criterion, adaptation_criterion, scaler, scheduler, dataloader_source_train, dataloader_target_train,
+             dataloader_source_val, dataloader_target_val):
     """
     This is the common double-loop structure that most of us are familiar with.
     One must look here if they're looking for:
@@ -70,20 +34,20 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
     # Epoch loop
     for epoch in range(args.num_epochs):
         # Progress bar
-        tq = tqdm.tqdm(total=len(dataloader_train) * args.batch_size)
+        tq = tqdm.tqdm(total=len(dataloader_source_train) * args.batch_size)
         tq.set_description('epoch %d, lr %.3f' % (epoch + 1, scheduler.state_dict()["_last_lr"][0]))
 
         loss_record = []
         # Batch loop
-        for i, (data, label) in enumerate(dataloader_train):
+        for i, (source_data, target_data) in enumerate(zip(dataloader_source_train, dataloader_target_train)):
             # Move images to gpu
-            data = data.cuda()
-            label = label.cuda()
+            source_data, source_label = source_data[0].cuda(), source_data[1].cuda()
+            target_data = target_data[0].cuda()
 
             '''
             This is the actual content of the TRAINING loop.
             '''
-            loss = train_segmentation(model, data, label, optimizer, scaler, criterion)
+            loss = train_minent(model, source_data, source_label, target_data, optimizer, scaler, source_criterion, adaptation_criterion)
 
             # Logging & progress bar
             step += 1
@@ -108,7 +72,7 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
             '''
             This is the actual content of the validation loop
             '''
-            precision, mean_iou = validate_segmentation(args, model, dataloader_val, criterion)
+            precision, mean_iou = validate_segmentation(args, model, dataloader_source_val, dataloader_target_val, adaptation_criterion)
             # Save model if has better accuracy
             if mean_iou > best_mean_iou:
                 best_mean_iou = mean_iou
