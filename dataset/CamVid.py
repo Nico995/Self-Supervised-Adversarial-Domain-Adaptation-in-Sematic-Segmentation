@@ -137,7 +137,7 @@ class CamVid(torch.utils.data.Dataset):
         return len(self.image_list)
 
 
-def get_data_loaders(args, shuffle=True):
+def get_data_loaders(data, batch_size, num_workers, loss, pre_encoded, crop_height, crop_width, shuffle=True, train_length=False):
     """
     Build dataloader structures for train and validation
 
@@ -149,34 +149,37 @@ def get_data_loaders(args, shuffle=True):
     """
 
     # Build paths
-    train_path = [os.path.join(args.data, 'train'), os.path.join(args.data, 'val')]
-    train_label_path = [os.path.join(args.data, 'train_labels'), os.path.join(args.data, 'val_labels')]
+    train_path = [os.path.join(data, 'train'), os.path.join(data, 'val')]
+    train_label_path = [os.path.join(data, 'train_labels'), os.path.join(data, 'val_labels')]
 
-    test_path = os.path.join(args.data, 'test')
-    test_label_path = os.path.join(args.data, 'test_labels')
+    test_path = os.path.join(data, 'test')
+    test_label_path = os.path.join(data, 'test_labels')
 
-    csv_path = os.path.join(args.data, 'class_dict.csv')
+    csv_path = os.path.join(data, 'class_dict.csv')
     # Train Dataloader
-    dataset_train = CamVid(train_path, train_label_path, csv_path, (args.crop_height, args.crop_width),
-                           loss=args.loss, pre_encoded=args.pre_encoded)
+    dataset_train = CamVid(train_path, train_label_path, csv_path, (crop_height, crop_width),
+                           loss=loss, pre_encoded=pre_encoded)
 
     dataloader_train = DataLoader(
         dataset_train,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
+        batch_size=batch_size,
+        num_workers=num_workers,
         drop_last=True,
         shuffle=shuffle
     )
 
     # Val Dataloader
-    dataset_val = CamVid(test_path, test_label_path, csv_path, (args.crop_height, args.crop_width),
-                         loss=args.loss, mode='val', pre_encoded=args.pre_encoded)
+    dataset_val = CamVid(test_path, test_label_path, csv_path, (crop_height, crop_width),
+                         loss=loss, mode='val', pre_encoded=pre_encoded)
     dataloader_val = DataLoader(
         dataset_val,
         # this has to be 1
         batch_size=1,
-        num_workers=args.num_workers,
+        num_workers=num_workers,
         shuffle=shuffle
     )
 
-    return dataloader_train, dataloader_val
+    if train_length:
+        return dataloader_train, dataloader_val, len(dataset_train)
+    else:
+        return dataloader_train, dataloader_val

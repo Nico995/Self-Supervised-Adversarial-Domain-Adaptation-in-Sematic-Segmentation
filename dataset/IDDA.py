@@ -2,16 +2,13 @@ import glob
 import os
 import random
 
-import matplotlib.pyplot as plt
-from torchvision.transforms import functional as F
-
 import numpy as np
 import torch
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Normalize, ToTensor, RandomCrop, Resize
 
-from utils import encode_label_crossentropy, get_label_info, encode_label_idda_dice
+from utils import get_label_info, encode_label_idda_dice
 from utils.custom_transforms import RandomGaussianBlur, ColorDistortion
 
 
@@ -20,7 +17,7 @@ class IDDA(torch.utils.data.Dataset):
     Custom dataset class to manage images and labels
     """
 
-    def __init__(self, image_path, label_path, csv_path, image_size, mode='train', loss='dice', pre_encoded=False):
+    def __init__(self, image_path, label_path, csv_path, image_size, mode='train', loss='dice', pre_encoded=False, max_images=None):
         """
 
         Args:
@@ -32,12 +29,15 @@ class IDDA(torch.utils.data.Dataset):
         """
 
         super().__init__()
+        # Store some parameters
         self.image_size = image_size
         self.loss = loss
         self.scales = [0.5, 1, 1.25, 1.5, 1.75, 2]
         self.pre_encoded = pre_encoded
+        self.max_images = max_images
 
-        self.mode = mode  # Read metadata
+        # Mode: either train or val
+        self.mode = mode
 
         self.label_info = get_label_info(csv_path)
 
@@ -60,6 +60,15 @@ class IDDA(torch.utils.data.Dataset):
                 self.label_list.extend(glob.glob(os.path.join(label_path_, f'*.npz')))
 
         self.label_list.sort()
+
+        # If a maximum number of images has been set
+        # This is necessary for domain adaptation due to the difference in source-target dataset size
+        if self.max_images:
+            # Draw randomly #max_images form the image list
+            choice = np.random.choice(len(self.image_list), self.max_images)
+            # And select only those that have been drawn
+            self.label_list = [self.label_list[c] for c in choice]
+            self.image_list = [self.image_list[c] for c in choice]
 
         # Transformations
         self.normalize = Compose([
@@ -123,7 +132,7 @@ class IDDA(torch.utils.data.Dataset):
         return len(self.image_list)
 
 
-def get_data_loaders(args, shuffle=False):
+def get_data_loaders(data, batch_size, num_workers, loss, pre_encoded, crop_height, crop_width, shuffle=True, max_images=None):
     """
     Build dataloader structures for train and validation
 
@@ -135,33 +144,34 @@ def get_data_loaders(args, shuffle=False):
     """
 
     # Build paths
-    train_path = [os.path.join(args.data, 'train')]
-    train_label_path = [os.path.join(args.data, 'train_labels')]
+    train_path = [os.path.join(data, 'train')]
+    train_label_path = [os.path.join(data, 'train_labels')]
 
-    test_path = os.path.join(args.data, 'val')
-    test_label_path = os.path.join(args.data, 'val_labels')
+    test_path = os.path.join(data, 'val')
+    test_label_path = os.path.join(data, 'val_labels')
 
-    csv_path = os.path.join(args.data, 'class_dict.csv')
+    csv_path = os.path.join(data, 'class_dict.csv')
     # Train Dataloader
-    dataset_train = IDDA(train_path, train_label_path, csv_path, (args.crop_height, args.crop_width),
-                           loss=args.loss, pre_encoded=args.pre_encoded)
+    dataset_train = IDDA(train_path, train_label_path, csv_path, (crop_height, crop_width), loss=loss,
+                         pre_encoded=pre_encoded, max_images=max_images)
 
     dataloader_train = DataLoader(
         dataset_train,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
+        batch_size=batch_size,
+        num_workers=num_workers,
         drop_last=True,
         shuffle=shuffle
     )
 
     # Val Dataloader
-    dataset_val = IDDA(test_path, test_label_path, csv_path, (args.crop_height, args.crop_width),
-                         loss=args.loss, mode='val', pre_encoded=args.pre_encoded)
+    dataset_val = IDDA(test_path, test_label_path, csv_path, (crop_height, crop_width), loss=loss, mode='val',
+                       pre_encoded=pre_encoded)
+
     dataloader_val = DataLoader(
         dataset_val,
         # this has to be 1
         batch_size=1,
-        num_workers=args.num_workers,
+        num_workers=num_workers,
         shuffle=shuffle
     )
 
