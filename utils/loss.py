@@ -1,6 +1,8 @@
-import torch.nn as nn
+import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
+
 
 def flatten(tensor):
     """Flattens a given tensor such that the channel axis is first.
@@ -18,7 +20,7 @@ def flatten(tensor):
 
 class DiceLoss(nn.Module):
     def __init__(self):
-        super().__init__()
+        super(DiceLoss, self).__init__()
         self.epsilon = 1e-5
 
     def forward(self, output, target):
@@ -35,3 +37,18 @@ class DiceLoss(nn.Module):
         dice = torch.mean(dice)
         return 1 - dice
         # return 1 - 2. * intersect / denominator
+
+
+class EntropyLoss(nn.Module):
+    def __init__(self):
+        super(EntropyLoss, self).__init__()
+
+    def forward(self, v):
+        """
+            Entropy loss for probabilistic prediction vectors
+            input: batch_size x channels x h x w
+            output: batch_size x 1 x h x w
+        """
+        assert v.dim() == 4
+        n, c, h, w = v.size()
+        return -torch.sum(torch.mul(v, torch.log2(v + 1e-30))) / (n * h * w * np.log2(c))
