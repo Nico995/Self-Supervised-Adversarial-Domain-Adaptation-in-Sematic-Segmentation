@@ -226,7 +226,7 @@ def get_confusion_matrix(pred, label, num_classes):
     ).reshape(num_classes, num_classes)
 
 
-def intersection_over_union(matrix, metadata, epsilon=1e-5):
+def intersection_over_union(matrix, epsilon=1e-5):
     """
     Computes Per-Class Intersection-Over-Union metric. (Jaccard Index)
     IoU computes the ratio between the:
@@ -236,7 +236,6 @@ def intersection_over_union(matrix, metadata, epsilon=1e-5):
 
     Args:
         matrix (np.array): Confusion matrix of the prediction with respect to the label.
-        metadata (str): Path for metedata csv
         epsilon (float): small value used to avoid divisions by 0, in case the class is not present in the prediction.
     Returns:
         Per-Class Intersection-Over-Union
@@ -256,10 +255,7 @@ def intersection_over_union(matrix, metadata, epsilon=1e-5):
     total_per_class = matrix.sum(axis=1)
     ious = (correct_per_class + epsilon) / (2 * total_per_class - correct_per_class + epsilon)
 
-    df = pd.read_csv(metadata)
-    names = df.loc[df["class_11"] == 1, "name"]
-
-    return zip(names, ious), np.mean(ious)
+    return ious, np.mean(ious)
 
 
 def seed_worker(worker_id):
