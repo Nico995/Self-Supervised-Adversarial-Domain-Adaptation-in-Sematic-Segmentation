@@ -6,7 +6,7 @@ import torch
 
 from dataset import camvid_data_loaders, idda_data_loaders
 from model import BiSeNet
-from utils import load_train_args, reverse_one_hot, convert_class_to_color
+from utils import load_segm_args, reverse_one_hot, convert_class_to_color
 
 if __name__ == '__main__':
 
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     np.random.seed(seed)
 
     # Read command line arguments
-    args = load_train_args()
+    args = load_segm_args()
 
     # Get dataloader structures
 
