@@ -1,7 +1,7 @@
 import argparse
 
 
-def load_train_args():
+def load_segm_args():
     # basic parameters
     parser = argparse.ArgumentParser()
 
@@ -49,7 +49,6 @@ def load_da_args():
     # basic parameters
     parser = argparse.ArgumentParser()
 
-    # Training config
     # Training config
     parser.add_argument('--num_epochs', type=int, default=50, help='Number of epochs to train for')
     parser.add_argument('--learning_rate', type=float, default=0.025, help='learning rate used for train')
