@@ -25,9 +25,9 @@ if __name__ == '__main__':
     # Get dataloader structures
 
     if args.dataset == 'IDDA':
-        _, dataloader_val = idda_data_loaders(args, shuffle=True)
+        _, dataloader_val = idda_data_loaders(args.data, 1, 1, args.loss, args.pre_encoded, args.crop_height, args.crop_width, shuffle=True)
     else:
-        _, dataloader_val = camvid_data_loaders(args, shuffle=True)
+        _, dataloader_val = camvid_data_loaders(args.data, 1, 1, args.loss, args.pre_encoded, args.crop_height, args.crop_width, shuffle=True)
 
     # build model
     model = BiSeNet(args.num_classes, args.context_path).cuda()
