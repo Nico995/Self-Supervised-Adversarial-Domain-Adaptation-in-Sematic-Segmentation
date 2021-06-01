@@ -4,13 +4,13 @@ from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
 from dataset import camvid_data_loaders, idda_data_loaders
 from model import BiSeNet
-from training import training
-from utils import load_train_args, DiceLoss
+from methods.segmentation.training import training
+from utils import load_segm_args, DiceLoss
 
 
 def main():
     """
-    This is the script entry point. Differently from most DL implementation, in the main() function we will only keep
+    This is the TRAINING script entry point. Differently from most DL implementation, in the main() function we will only keep
     variables initializations and nothing else.
     We will make use of a script for the general training loop, called training.py. Inside training.py one can find the
     basic loop structure (epochs and bacthes) common to all Deep Learning's model's tranining.
@@ -27,7 +27,10 @@ def main():
     """
 
     # Read command line arguments
-    args = load_train_args()
+    args = load_segm_args()
+
+    # build model
+    model = BiSeNet(args.num_classes, args.context_path).cuda()
 
     # Get dataloader structures
     if args.dataset == 'CamVid':
@@ -36,9 +39,6 @@ def main():
     else:
         dataloader_train, dataloader_val = idda_data_loaders(args.data, args.batch_size, args.num_workers, args.loss,
                                                              args.pre_encoded, args.crop_height, args.crop_width)
-
-    # build model
-    model = BiSeNet(args.num_classes, args.context_path).cuda()
 
     # build optimizer
     if args.optimizer == 'rmsprop':

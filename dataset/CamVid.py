@@ -183,3 +183,4 @@ def get_data_loaders(data, batch_size, num_workers, loss, pre_encoded, crop_heig
         return dataloader_train, dataloader_val, len(dataset_train)
     else:
         return dataloader_train, dataloader_val
+

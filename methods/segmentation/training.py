@@ -5,8 +5,9 @@ import torch
 import tqdm
 from tensorboardX import SummaryWriter
 
-from methods import train_segmentation, validate_segmentation
 from utils import intersection_over_union
+from methods import train_segmentation, validate_segmentation, train_minent, validate_minent
+from utils.custom_exceptions import TaskNotSupportedException
 
 
 def validation(args, model, dataloader_val, criterion):
@@ -61,7 +62,6 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
     - Checkpointing
     - Validation Entry-point
     """
-
     writer = SummaryWriter(comment=''.format(args.optimizer, args.context_path))
 
     # initialize temp variables
@@ -109,7 +109,7 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
             '''
             This is the actual content of the validation loop
             '''
-            precision, mean_iou = validation(args, model, dataloader_val, criterion)
+            precision, mean_iou = validate_segmentation(args, model, dataloader_val, criterion)
             # Save model if has better accuracy
             if mean_iou > best_mean_iou:
                 best_mean_iou = mean_iou
