@@ -13,7 +13,7 @@ import dataset
 
 from dataset import camvid_data_loaders, idda_data_loaders
 from model import BiSeNet
-from utils import load_args, poly_lr_scheduler, DiceLoss
+from utils import load_train_args, poly_lr_scheduler, DiceLoss
 from eval import validate
 
 
@@ -127,14 +127,16 @@ def train(args, model, optimizer, criterion, scaler, scheduler, dataloader_train
 
 def main():
     # Read command line arguments
-    args = load_args()
+    args = load_train_args()
     csv_path = os.path.join(args.data, 'class_dict.csv')
 
     # Get dataloader structures
     if args.dataset == 'CamVid':
-        dataloader_train, dataloader_val = camvid_data_loaders(args)
+        dataloader_train, dataloader_val = camvid_data_loaders(args.data, args.batch_size, args.num_workers, args.loss,
+                                                               args.pre_encoded, args.crop_height, args.crop_width)
     else:
-        dataloader_train, dataloader_val = idda_data_loaders(args)
+        dataloader_train, dataloader_val = idda_data_loaders(args.data, args.batch_size, args.num_workers, args.loss,
+                                                             args.pre_encoded, args.crop_height, args.crop_width)
 
     # build model
     model = BiSeNet(args.num_classes, args.context_path)
