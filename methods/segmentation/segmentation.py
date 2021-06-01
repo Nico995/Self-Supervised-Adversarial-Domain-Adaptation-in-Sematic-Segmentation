@@ -5,7 +5,10 @@ from torch.cuda.amp import autocast
 from utils import reverse_one_hot, global_accuracy, get_confusion_matrix
 
 
-def train_segmentation(model, data, label, optimizer, scaler, criterion):
+def train_segmentation(model, data, label, optimizer, scaler, criterion, loss):
+    if loss == 'crossentropy':
+        label = torch.argmax(label, dim=1).long()
+
     # Set model to Train mode
     model.train()
 
@@ -15,6 +18,7 @@ def train_segmentation(model, data, label, optimizer, scaler, criterion):
     with autocast():
         # Get network output
         output, output_sup1, output_sup2 = model(data)
+
         # Loss
         loss1 = criterion(output, label)
         loss2 = criterion(output_sup1, label)
@@ -31,7 +35,7 @@ def train_segmentation(model, data, label, optimizer, scaler, criterion):
     return loss.item()
 
 
-def validate_segmentation(model, data, label, loss, classes):
+def validate_segmentation(model, data, label, criterion, loss, classes):
     # Disable dropout and batch norm layers
     model.eval()
 
@@ -44,8 +48,7 @@ def validate_segmentation(model, data, label, loss, classes):
 
         # get RGB label image
         label = label.squeeze()
-        if loss == 'dice':
-            label = reverse_one_hot(label)
+        label = reverse_one_hot(label)
         label = np.array(label.detach().cpu())
 
         # compute per pixel accuracy

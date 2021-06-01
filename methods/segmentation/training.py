@@ -30,7 +30,7 @@ def validation(args, model, dataloader_val, criterion):
         '''
         This is the actual content of the VALIDATION loop.
         '''
-        precision, confusion_matrix = validate_segmentation(model, data, label, args.loss, args.num_classes)
+        precision, confusion_matrix = validate_segmentation(model, data, label, criterion, args.loss, args.num_classes)
 
         # Store metrics
         running_confusion_matrix += confusion_matrix
@@ -83,7 +83,7 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
             '''
             This is the actual content of the TRAINING loop.
             '''
-            loss = train_segmentation(model, data, label, optimizer, scaler, criterion)
+            loss = train_segmentation(model, data, label, optimizer, scaler, criterion, args.loss)
 
             # Logging & progress bar
             step += 1
@@ -108,7 +108,7 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
             '''
             This is the actual content of the validation loop
             '''
-            precision, mean_iou = validate_segmentation(args, model, dataloader_val, criterion)
+            precision, mean_iou = validation(args, model, dataloader_val, criterion)
             # Save model if has better accuracy
             if mean_iou > best_mean_iou:
                 best_mean_iou = mean_iou
