@@ -32,7 +32,7 @@ class CamVid(torch.utils.data.Dataset):
     Custom dataset class to manage images and labels
     """
 
-    def __init__(self, image_path, label_path, csv_path, image_size, mode='train', loss='dice', pre_encoded=False):
+    def __init__(self, image_path, label_path, csv_path, image_size, mode='train', loss='dice', pre_encoded=False, do_augmentation=True):
         """
 
         Args:
@@ -48,6 +48,7 @@ class CamVid(torch.utils.data.Dataset):
         self.loss = loss
         self.scales = [0.5, 1, 1.25, 1.5, 1.75, 2]
         self.pre_encoded = pre_encoded
+        self.do_augmentation = do_augmentation
 
         self.mode = mode
 
@@ -77,7 +78,7 @@ class CamVid(torch.utils.data.Dataset):
         # Transformations
         self.normalize = Compose([
             ToTensor(),
-            Normalize((0.39068785, 0.40521392, 0.41434407), (0.29652068, 0.30514979, 0.30080369)),
+            # Normalize((0.39068785, 0.40521392, 0.41434407), (0.29652068, 0.30514979, 0.30080369)),
         ])
 
         self.augment = Compose([ColorDistortion(), RandomGaussianBlur()])
@@ -121,14 +122,12 @@ class CamVid(torch.utils.data.Dataset):
             label = Resize(scaled_image_size)(label)
             label = RandomCrop(self.image_size, seed, pad_if_needed=True)(label)
 
-        flip = torch.rand(1)
-
-        if flip < 0.75:
-            image = F.hflip(image)
-            label = F.hflip(label)
-
-        if self.mode == 'train':
-            image = self.augment(image)
+        if self.do_augmentation and self.mode == 'train':
+            flip = torch.rand(1)
+            if flip < 0.75:
+                image = F.hflip(image)
+                label = F.hflip(label)
+                image = self.augment(image)
 
         image = self.normalize(image).float()
         return image, label
@@ -137,7 +136,7 @@ class CamVid(torch.utils.data.Dataset):
         return len(self.image_list)
 
 
-def get_data_loaders(data, batch_size, num_workers, loss, pre_encoded, crop_height, crop_width, shuffle=True, train_length=False):
+def get_data_loaders(data, batch_size, num_workers, loss, pre_encoded, crop_height, crop_width, shuffle=True, train_length=False, do_augmentation=True):
     """
     Build dataloader structures for train and validation
 
@@ -158,19 +157,19 @@ def get_data_loaders(data, batch_size, num_workers, loss, pre_encoded, crop_heig
     csv_path = os.path.join(data, 'class_dict.csv')
     # Train Dataloader
     dataset_train = CamVid(train_path, train_label_path, csv_path, (crop_height, crop_width),
-                           loss=loss, pre_encoded=pre_encoded)
+                           loss=loss, pre_encoded=pre_encoded, do_augmentation=do_augmentation)
 
     dataloader_train = DataLoader(
         dataset_train,
         batch_size=batch_size,
         num_workers=num_workers,
         drop_last=True,
-        shuffle=shuffle
+        shuffle=shuffle,
     )
 
     # Val Dataloader
     dataset_val = CamVid(test_path, test_label_path, csv_path, (crop_height, crop_width),
-                         loss=loss, mode='val', pre_encoded=pre_encoded)
+                         loss=loss, mode='val', pre_encoded=pre_encoded, do_augmentation=do_augmentation)
     dataloader_val = DataLoader(
         dataset_val,
         # this has to be 1

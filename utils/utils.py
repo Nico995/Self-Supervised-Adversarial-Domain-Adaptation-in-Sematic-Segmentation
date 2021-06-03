@@ -2,26 +2,7 @@ import random
 import numpy as np
 import pandas as pd
 import torch
-
-
-def poly_lr_scheduler(optimizer, starting_lr, current_iter, max_iter=300, power=0.9):
-    """
-    Polynomial decay learning rate scheduler. Updates the optimizers
-    parameters automatically, with the new learning rate.
-
-    Args:
-        optimizer: Optimizer used in training.
-        starting_lr (float): Base learning rate to start the schedule with.
-        current_iter (int): Current epoch in the training loop.
-        max_iter (int): Final epoch in the training loop.
-        power (float): Power to use in the polynomial computation.
-
-    Returns:
-        Current learning rate
-    """
-    lr = starting_lr * (1 - current_iter / max_iter) ** power
-    optimizer.param_groups[0]['lr'] = lr
-    return lr
+import matplotlib.pyplot as plt
 
 
 def get_label_info(csv_path):
@@ -252,7 +233,7 @@ def intersection_over_union(matrix, epsilon=1e-5):
 
     correct_per_class = np.diag(matrix)
     total_per_class = matrix.sum(axis=1)
-    ious = (correct_per_class + epsilon) / (2 * total_per_class - correct_per_class + epsilon)
+    ious = (correct_per_class) / (2 * total_per_class - correct_per_class + epsilon)
 
     return ious, np.mean(ious)
 
@@ -288,3 +269,29 @@ def convert_class_to_color(img):
             new_img[r, c] = color
 
     return new_img
+
+
+def plot_prediction(model, dataloader_val, epoch, dataset='CamVid'):
+    model.eval()
+    with torch.no_grad():
+        for i, (data, label) in enumerate(dataloader_val):
+            label, data = label.cuda(), data.cuda()
+            fig, ax = plt.subplots(1, 2)
+            ax = ax.ravel()
+            predict = model(data)
+            predict_image = convert_class_to_color(reverse_one_hot(predict[0]))
+            ax[0].imshow(predict_image)
+            ax[0].set_title("predicted")
+
+            if dataset == 'IDDA':
+                label = label[0]
+                label_image = convert_class_to_color(reverse_one_hot(label))
+                # label_image = np.transpose(label_image, (1, 0, 2))
+            else:
+                label_image = convert_class_to_color(reverse_one_hot(label[0]))
+
+            ax[1].imshow(label_image)
+            ax[1].set_title("label")
+            plt.show()
+            plt.savefig(f'images/pred_{epoch}')
+            return

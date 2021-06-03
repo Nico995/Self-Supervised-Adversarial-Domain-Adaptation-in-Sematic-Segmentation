@@ -28,7 +28,7 @@ def load_segm_args():
 
     # Save path config
     parser.add_argument('--data', type=str, default='data/CamVid/', help='path of training data')
-    parser.add_argument('--save_model_path', type=str, default='./checkpoints_18_sgd', help='path to save model')
+    parser.add_argument('--save_model_path', type=str, default='./checkpoints', help='path to save model')
 
     # Environment resources config
     parser.add_argument('--num_workers', type=int, default=6, help='num of workers')
@@ -66,6 +66,10 @@ def load_da_args():
     parser.add_argument('--optimizer', type=str, default='sgd', help='optimizer, support rmsprop, sgd, adam')
     parser.add_argument('--loss', type=str, default='dice', help='loss function, dice or crossentropy')
 
+    # Checkpoint config
+    parser.add_argument('--checkpoint_step', type=int, default=20, help='How often to save checkpoints (epochs)')
+    parser.add_argument('--validation_step', type=int, default=10, help='How often to perform validation (epochs)')
+
     # Environment resources config
     parser.add_argument('--num_workers', type=int, default=6, help='num of workers')
     parser.add_argument('--use_gpu', action='store_true', help='whether to user gpu for training')
@@ -73,9 +77,11 @@ def load_da_args():
     # Model architecture config
     parser.add_argument('--context_path', type=str, default="resnet101", help='The context path backbone model to use.')
     parser.add_argument('--num_classes', type=int, default=12, help='num of object classes (with void)')
+    parser.add_argument('--pretrained_weights', type=str, help='path to model pretrained on source data')
 
     # Misc
     parser.add_argument('--pre_encoded', action='store_true', help='whether to use pre encoded labels or not')
+    parser.add_argument('--save_model_path', type=str, default='./checkpoints', help='path to save model')
 
     args = parser.parse_args()
 

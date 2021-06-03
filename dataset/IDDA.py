@@ -7,6 +7,7 @@ import torch
 from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Normalize, ToTensor, RandomCrop, Resize
+from torchvision.transforms import functional as F
 
 from utils import get_label_info, encode_label_idda_dice
 from utils.custom_transforms import RandomGaussianBlur, ColorDistortion
@@ -17,7 +18,8 @@ class IDDA(torch.utils.data.Dataset):
     Custom dataset class to manage images and labels
     """
 
-    def __init__(self, image_path, label_path, csv_path, image_size, mode='train', loss='dice', pre_encoded=False, max_images=None):
+    def __init__(self, image_path, label_path, csv_path, image_size, mode='train', loss='dice', pre_encoded=False,
+                 max_images=None, do_augmentation=True):
         """
 
         Args:
@@ -35,6 +37,7 @@ class IDDA(torch.utils.data.Dataset):
         self.scales = [0.5, 1, 1.25, 1.5, 1.75, 2]
         self.pre_encoded = pre_encoded
         self.max_images = max_images
+        self.do_augmentation = do_augmentation
 
         # Mode: either train or val
         self.mode = mode
@@ -101,15 +104,11 @@ class IDDA(torch.utils.data.Dataset):
             label = RandomCrop(self.image_size, seed, pad_if_needed=True)(label)
 
             # Encode label
-            if self.loss == 'dice':
-                # Encode label image
-                label = encode_label_idda_dice(label).astype(np.uint8)
-                label = torch.from_numpy(label)
+            label = encode_label_idda_dice(label).astype(np.uint8)
+            label = np.transpose(label, (2, 0, 1))
+            label = torch.from_numpy(label)
 
-            elif self.loss == 'crossentropy':
-                # TODO: Implement crossentropy encoding
-                print("not implemented yet")
-                exit('-1')
+            # if self.loss == 'crossentropy':
         else:
             # Labels are numpy.ndarrays
             label = np.moveaxis(np.load(self.label_list[index])["a"], -1, 0)
@@ -117,13 +116,12 @@ class IDDA(torch.utils.data.Dataset):
             label = Resize(scaled_image_size)(label)
             label = RandomCrop(self.image_size, seed, pad_if_needed=True)(label)
 
-        flip = torch.rand(1)
-
-        # if flip < 0.75:
-        #     image = F.hflip(image)
-        #     label = F.hflip(label)
-
-        # image = self.augment(image)
+        if self.do_augmentation and self.mode == 'train':
+            flip = torch.rand(1)
+            if flip < 0.75:
+                image = F.hflip(image)
+                label = F.hflip(label)
+            image = self.augment(image)
 
         image = self.normalize(image).float()
         return image, label
@@ -132,7 +130,8 @@ class IDDA(torch.utils.data.Dataset):
         return len(self.image_list)
 
 
-def get_data_loaders(data, batch_size, num_workers, loss, pre_encoded, crop_height, crop_width, shuffle=True, max_images=None):
+def get_data_loaders(data, batch_size, num_workers, loss, pre_encoded, crop_height, crop_width, shuffle=True,
+                     max_images=None, do_augmentation=True):
     """
     Build dataloader structures for train and validation
 
@@ -153,7 +152,7 @@ def get_data_loaders(data, batch_size, num_workers, loss, pre_encoded, crop_heig
     csv_path = os.path.join(data, 'class_dict.csv')
     # Train Dataloader
     dataset_train = IDDA(train_path, train_label_path, csv_path, (crop_height, crop_width), loss=loss,
-                         pre_encoded=pre_encoded, max_images=max_images)
+                         pre_encoded=pre_encoded, max_images=max_images, do_augmentation=do_augmentation)
 
     dataloader_train = DataLoader(
         dataset_train,
@@ -165,7 +164,7 @@ def get_data_loaders(data, batch_size, num_workers, loss, pre_encoded, crop_heig
 
     # Val Dataloader
     dataset_val = IDDA(test_path, test_label_path, csv_path, (crop_height, crop_width), loss=loss, mode='val',
-                       pre_encoded=pre_encoded)
+                       pre_encoded=pre_encoded, do_augmentation=do_augmentation)
 
     dataloader_val = DataLoader(
         dataset_val,

@@ -6,7 +6,7 @@ import tqdm
 from tensorboardX import SummaryWriter
 
 from methods import validate_segmentation, train_segmentation
-from utils import intersection_over_union
+from utils import intersection_over_union, plot_prediction
 
 
 def validation(args, model, dataloader_val, criterion):
@@ -16,13 +16,16 @@ def validation(args, model, dataloader_val, criterion):
 
     # Progress bar
     tq = tqdm.tqdm(total=len(dataloader_val) * args.batch_size)
-    tq.set_description('test')
+    tq.set_description('val')
 
     # Metrics initialization
     running_precision = []
     running_confusion_matrix = np.zeros((args.num_classes, args.num_classes))
 
     for i, (data, label) in enumerate(dataloader_val):
+        # TODO: Remove for CamVid
+        if i*args.batch_size >= 200:
+            break
         # Move images to gpu
         data = data.cuda()
         label = label.cuda()
@@ -75,7 +78,13 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
 
         loss_record = []
         # Batch loop
+
         for i, (data, label) in enumerate(dataloader_train):
+
+            # TODO: Remove for CamVid
+            if i*args.batch_size >= 468:
+                break
+
             # Move images to gpu
             data = data.cuda()
             label = label.cuda()
@@ -102,6 +111,9 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
 
         tq.set_postfix(mean_loss='%.6f' % loss_train_mean)
         tq.close()
+
+        # Plot prediction image
+        plot_prediction(model, dataloader_val, epoch, args.dataset)
 
         # Validation step
         if (epoch + 1) % args.validation_step == 0 or epoch == args.num_epochs:

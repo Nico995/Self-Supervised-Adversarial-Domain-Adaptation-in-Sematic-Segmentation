@@ -35,12 +35,13 @@ def main():
     model = BiSeNet(args.num_classes, args.context_path).cuda()
 
     dataloader_target_train, dataloader_target_val, len_images = \
-        camvid_data_loaders(args.target_data, args.target_batch_size, args.num_workers, args.loss, args.pre_encoded,
-                            args.crop_height, args.crop_width, shuffle=True, train_length=True)
+        camvid_data_loaders(args.target_data, args.target_batch_size, args.num_workers, args.loss,
+                            args.pre_encoded, args.crop_height, args.crop_width, shuffle=True, train_length=True,
+                            do_augmentation=False)
 
     dataloader_source_train, dataloader_source_val = \
         idda_data_loaders(args.source_data, args.source_batch_size, args.num_workers, args.loss, args.pre_encoded,
-                          args.crop_height, args.crop_width, shuffle=True, max_images=len_images)
+                          args.crop_height, args.crop_width, shuffle=True, max_images=len_images, do_augmentation=False)
 
     # build optimizer
     if args.optimizer == 'rmsprop':

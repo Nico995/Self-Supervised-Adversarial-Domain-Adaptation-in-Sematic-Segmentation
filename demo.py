@@ -10,7 +10,7 @@ from utils import load_segm_args, reverse_one_hot, convert_class_to_color
 
 if __name__ == '__main__':
 
-    seed = 41
+    seed = 22
     # Reproducibility
     # seed the RNG for all devices (both CPU and CUDA)
     torch.manual_seed(seed)
@@ -34,7 +34,6 @@ if __name__ == '__main__':
     model.load_state_dict(torch.load(args.pretrained_model_path))
     model.eval()
 
-    print(len(dataloader_val))
     for i, (data, label) in enumerate(dataloader_val):
         fig, ax = plt.subplots(1, 2)
         ax = ax.ravel()
@@ -45,10 +44,12 @@ if __name__ == '__main__':
         ax[0].set_title("predicted")
 
         if args.dataset == 'IDDA':
-            label = label[0].permute(2, 0, 1)
+            label = label[0]
             label_image = convert_class_to_color(reverse_one_hot(label))
+            # label_image = np.transpose(label_image, (1, 0, 2))
         else:
             label_image = convert_class_to_color(reverse_one_hot(label[0]))
+
         ax[1].imshow(label_image)
         ax[1].set_title("label")
         plt.show()

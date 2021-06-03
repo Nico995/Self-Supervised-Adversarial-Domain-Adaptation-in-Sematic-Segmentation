@@ -22,7 +22,7 @@ def main():
     One should look here if they're looking for:
     - Dataset/Dataloader initialization
     - Model initialization
-    - Optimizer, Learning Rate Scheduler & Criterion(loss fn.) initialization
+    - Optimizer, Learning Rate Scheduler & Criterion (loss fn.) initialization
 
     """
 
