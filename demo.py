@@ -5,8 +5,10 @@ import numpy as np
 import torch
 
 from dataset import camvid_data_loaders, idda_data_loaders
-from model import BiSeNet
+# from model import BiSeNet
 from utils import load_segm_args, reverse_one_hot, convert_class_to_color
+from model_old.build_BiSeNet import BiSeNet
+
 
 if __name__ == '__main__':
 

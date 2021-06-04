@@ -32,8 +32,6 @@ def train_segmentation(model, data, label, optimizer, scaler, criterion, loss):
     # Updates the scale for next iteration.
     scaler.update()
 
-    optimizer.zero_grad()
-
     return loss.item()
 
 
