@@ -254,8 +254,8 @@ def seed_worker(worker_id):
 
 
 def convert_class_to_color(img):
-    class_to_color = [(0, 0, 0), (0, 128, 192), (128, 0, 0), (64, 0, 128), (192, 192, 128), (64, 64, 128), (64, 64, 0),
-                      (128, 64, 128), (0, 0, 192), (192, 128, 128), (128, 128, 128), (128, 128, 0)]
+    class_to_color = [(0, 128, 192), (128, 0, 0), (64, 0, 128), (192, 192, 128), (64, 64, 128), (64, 64, 0),
+                      (128, 64, 128), (0, 0, 192), (192, 128, 128), (128, 128, 128), (128, 128, 0), (0, 0, 0)]
 
     new_img = np.zeros(img.shape + (3,), dtype=np.uint8)
 
@@ -292,6 +292,31 @@ def plot_prediction(model, dataloader_val, epoch, dataset='CamVid'):
 
             ax[1].imshow(label_image)
             ax[1].set_title("label")
-            plt.show()
             plt.savefig(f'images/pred_{epoch}')
+            plt.show()
             return
+
+
+def batch_to_plottable_image(batch):
+    return np.moveaxis(np.array(batch[0].detach().cpu()), 0, -1)
+
+
+def label_to_plottable_image(batch):
+    return convert_class_to_color(reverse_one_hot(batch[0].detach().cpu()))
+
+
+def poly_lr_scheduler(optimizer, init_lr, iter, lr_decay_iter=1, max_iter=300, power=0.9):
+    """Polynomial decay of learning rate
+        :param init_lr is base learning rate
+        :param iter is a current iteration
+        :param lr_decay_iter how frequently decay occurs, default is 1
+        :param max_iter is number of maximum iterations
+        :param power is a polymomial power
+    """
+    # if iter % lr_decay_iter or iter > max_iter:
+    # 	return optimizer
+
+    lr = init_lr*(1 - iter/max_iter)**power
+    optimizer.param_groups[0]['lr'] = lr
+    return lr
+# return lr

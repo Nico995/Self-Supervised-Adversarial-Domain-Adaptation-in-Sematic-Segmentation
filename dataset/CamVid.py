@@ -3,7 +3,7 @@ import os
 import random
 
 import matplotlib.pyplot as plt
-from torchvision.transforms import functional as F
+from torchvision.transforms import functional as F, CenterCrop
 
 import numpy as np
 import torch
@@ -78,7 +78,7 @@ class CamVid(torch.utils.data.Dataset):
         # Transformations
         self.normalize = Compose([
             ToTensor(),
-            # Normalize((0.39068785, 0.40521392, 0.41434407), (0.29652068, 0.30514979, 0.30080369)),
+            Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         ])
 
         self.augment = Compose([ColorDistortion(), RandomGaussianBlur()])
@@ -96,14 +96,16 @@ class CamVid(torch.utils.data.Dataset):
         # Read images and transform
         image = Image.open(self.image_list[index])
         image = Resize(scaled_image_size)(image)
-        image = RandomCrop(self.image_size, seed, pad_if_needed=True)(image)
+        # image = RandomCrop(self.image_size, seed)(image)
+        image = CenterCrop(self.image_size)(image)
 
         # Read encode and transform label
         if not self.pre_encoded:
             # Labels are standard rgb images
             label = Image.open(self.label_list[index])
             label = Resize(scaled_image_size)(label)
-            label = RandomCrop(self.image_size, seed, pad_if_needed=True)(label)
+            # label = RandomCrop(self.image_size, seed)(label)
+            label = CenterCrop(self.image_size)(label)
 
             # Encode label
             if self.loss == 'dice':

@@ -6,6 +6,7 @@ from dataset import camvid_data_loaders, idda_data_loaders
 from model import BiSeNet
 from methods.segmentation.training import training
 from utils import load_segm_args, DiceLoss
+from utils.loss import DiceLossV2
 
 
 def main():
@@ -35,7 +36,7 @@ def main():
     # Get dataloader structures
     if args.dataset == 'CamVid':
         dataloader_train, dataloader_val = camvid_data_loaders(args.data, args.batch_size, args.num_workers, args.loss,
-                                                               args.pre_encoded, args.crop_height, args.crop_width)
+                                                               args.pre_encoded, args.crop_height, args.crop_width, do_augmentation=False)
     else:
         dataloader_train, dataloader_val = idda_data_loaders(args.data, args.batch_size, args.num_workers, args.loss,
                                                              args.pre_encoded, args.crop_height, args.crop_width)
@@ -51,6 +52,7 @@ def main():
     # Loss function
     if args.loss == 'dice':
         criterion = DiceLoss()
+        # criterion = DiceLossV2()
     else:
         criterion = torch.nn.CrossEntropyLoss()
 

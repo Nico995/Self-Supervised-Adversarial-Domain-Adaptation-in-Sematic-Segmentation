@@ -38,6 +38,31 @@ class DiceLoss(nn.Module):
         return 1 - dice
         # return 1 - 2. * intersect / denominator
 
+
+def make_one_hot(labels, classes):
+    one_hot = torch.FloatTensor(labels.size()[0], classes, labels.size()[2], labels.size()[3]).zero_().to(labels.device)
+    target = one_hot.scatter_(1, labels.data, 1)
+    return target
+
+
+class DiceLossV2(nn.Module):
+    def __init__(self, smooth=1., ignore_index=11):
+        super(DiceLossV2, self).__init__()
+        self.ignore_index = ignore_index
+        self.smooth = smooth
+
+    def forward(self, output, target):
+
+        # target = make_one_hot(target.unsqueeze(dim=1), classes=output.size()[1])
+        # print(target)
+        # exit()
+        output = F.softmax(output, dim=1)
+        output_flat = output.contiguous().view(-1)
+        target_flat = target.contiguous().view(-1)
+        intersection = (output_flat * target_flat).sum()
+        loss = 1 - ((2. * intersection + self.smooth) /
+                    (output_flat.sum() + target_flat.sum() + self.smooth))
+        return loss
 #
 # class EntropyLoss(nn.Module):
 #     def __init__(self):

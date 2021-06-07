@@ -1,5 +1,6 @@
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import tqdm
@@ -7,6 +8,7 @@ from tensorboardX import SummaryWriter
 
 from methods import validate_segmentation, train_segmentation
 from utils import intersection_over_union, plot_prediction
+from utils.utils import poly_lr_scheduler, batch_to_plottable_image, label_to_plottable_image
 
 
 def validation(args, model, dataloader_val, criterion):
@@ -23,9 +25,6 @@ def validation(args, model, dataloader_val, criterion):
     running_confusion_matrix = np.zeros((args.num_classes, args.num_classes))
 
     for i, (data, label) in enumerate(dataloader_val):
-        # TODO: Remove for CamVid
-        if i*args.batch_size >= 200:
-            break
         # Move images to gpu
         data = data.cuda()
         label = label.cuda()
@@ -72,18 +71,30 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
 
     # Epoch loop
     for epoch in range(args.num_epochs):
+
+        ###
+        lr = poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
+        ###
+
         # Progress bar
         tq = tqdm.tqdm(total=len(dataloader_train) * args.batch_size)
-        tq.set_description('epoch %d, lr %.3f' % (epoch + 1, scheduler.state_dict()["_last_lr"][0]))
+        # tq.set_description('epoch %d, lr %.3f' % (epoch + 1, scheduler.state_dict()["_last_lr"][0]))
+        tq.set_description('epoch %d, lr %.3f' % (epoch + 1, lr))
 
         loss_record = []
         # Batch loop
 
         for i, (data, label) in enumerate(dataloader_train):
-
-            # TODO: Remove for CamVid
-            if i*args.batch_size >= 468:
-                break
+            # plt.imshow(batch_to_plottable_image(data))
+            # plt.show()
+            # plt.imshow(label_to_plottable_image(label))
+            # plt.show()
+            # # Get class readable name from RGB color
+            # # Plot section (again, this is wrong, the section should be circular)
+            # plt.imshow(batch_to_plottable_image(data))
+            # plt.imshow(label_to_plottable_image(label), alpha=0.5)
+            # plt.show()
+            # exit()
 
             # Move images to gpu
             data = data.cuda()
@@ -103,7 +114,7 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
             tq.set_postfix(loss='%.6f' % loss)
 
         # Update learning rate at the end of each batch
-        scheduler.step()
+        # scheduler.step()
 
         # Logging & progress bar
         loss_train_mean = np.mean(loss_record)
