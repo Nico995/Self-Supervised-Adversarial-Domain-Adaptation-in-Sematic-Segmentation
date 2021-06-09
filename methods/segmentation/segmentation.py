@@ -6,7 +6,6 @@ from utils import reverse_one_hot, global_accuracy, get_confusion_matrix, inters
 
 
 def train_segmentation(model, data, label, optimizer, scaler, criterion, loss):
-
     if loss == 'crossentropy':
         label = torch.argmax(label, dim=1).long()
 
@@ -19,6 +18,7 @@ def train_segmentation(model, data, label, optimizer, scaler, criterion, loss):
     with autocast():
         # Get network output
         output, output_sup1, output_sup2 = model(data)
+
         # Loss
         loss1 = criterion(output, label)
         loss2 = criterion(output_sup1, label)
