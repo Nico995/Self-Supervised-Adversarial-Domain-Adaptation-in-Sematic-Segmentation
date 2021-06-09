@@ -1,10 +1,12 @@
+import warnings
+
 import torch
 from torch import nn
 from torch.nn.functional import interpolate
+from torchvision.models import resnet101, resnet18
 
-from model.build_contextpath import build_context_path
+from model.backbone import Resnet
 
-import warnings
 warnings.filterwarnings(action='ignore')
 
 
@@ -140,7 +142,7 @@ class FeatureFusionModule(torch.nn.Module):
         x = torch.cat((inputs_1, inputs_2), dim=1)
 
         # input and x channels should be same
-        assert self.in_channels == x.size(1), 'in_channels of ConvBlock should be {}'.format(x.size(1))
+        assert self.in_channels == x.size(1), f'in_channels of ConvBlock should be {x.size(1)}'
         feature = self.conv_block(x)
 
         x = self.avg_pool(feature)
@@ -166,7 +168,7 @@ class BiSeNet(torch.nn.Module):
         self.saptial_path = Spatial_path()
 
         # build context path
-        self.context_path = build_context_path(name=backbone)
+        self.context_path = get_context_path(name=backbone)
 
         # build attention refinement module  for resnet 101
         if backbone == 'resnet101':
@@ -253,3 +255,19 @@ class BiSeNet(torch.nn.Module):
             return result, cx1_sup, cx2_sup
         else:
             return result
+
+
+def get_context_path(name):
+    """
+    Builds the Context path model
+    Args:
+        name: name of the backbone architecture to return (resnet18 and resnet101 are the only supported arch.)
+
+    Returns:
+        Context path model
+    """
+    model = {
+        'resnet18': Resnet(resnet18(pretrained=True)),
+        'resnet101': Resnet(resnet101(pretrained=True))
+    }
+    return model[name]

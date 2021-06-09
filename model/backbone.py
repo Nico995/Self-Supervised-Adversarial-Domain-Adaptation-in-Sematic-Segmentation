@@ -1,5 +1,4 @@
 import torch
-from torchvision.models import resnet18, resnet101
 
 
 class Resnet(torch.nn.Module):
@@ -36,18 +35,3 @@ class Resnet(torch.nn.Module):
         tail = torch.mean(tail, 2, keepdim=True)
         return feature3, feature4, tail
 
-
-def build_context_path(name):
-    """
-    Builds the Context path model
-    Args:
-        name: name of the backbone architecture to return (resnet18 and resnet101 are the only supported arch.)
-
-    Returns:
-        Context path model
-    """
-    model = {
-        'resnet18': Resnet(resnet18(pretrained=True)),
-        'resnet101': Resnet(resnet101(pretrained=True))
-    }
-    return model[name]
