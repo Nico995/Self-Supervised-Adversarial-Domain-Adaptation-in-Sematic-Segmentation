@@ -39,7 +39,7 @@ def main():
                                                                args.pre_encoded, args.crop_height, args.crop_width, do_augmentation=False)
     else:
         dataloader_train, dataloader_val = idda_data_loaders(args.data, args.batch_size, args.num_workers, args.loss,
-                                                             args.pre_encoded, args.crop_height, args.crop_width)
+                                                             args.pre_encoded, args.crop_height, args.crop_width, do_augmentation=False)
 
     # build optimizer
     if args.optimizer == 'rmsprop':

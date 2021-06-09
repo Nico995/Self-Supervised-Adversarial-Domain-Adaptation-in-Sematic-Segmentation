@@ -1,7 +1,11 @@
+from abc import ABC
+
 import cv2
+import random
 import numpy as np
 from torchvision.transforms import ColorJitter, RandomApply, RandomGrayscale, Compose
-
+from albumentations import DualTransform, to_tuple
+import albumentations.augmentations.functional as F
 
 class RandomGaussianBlur(object):
     """
@@ -33,3 +37,26 @@ class ColorDistortion(object):
         a = color_distort(img)
 
         return a
+
+
+class RandomDiscreteScale(DualTransform):
+    def __init__(self, scales, interpolation=cv2.INTER_LINEAR, always_apply=False, p=0.5):
+        super(RandomDiscreteScale, self).__init__(always_apply, p)
+        self.scales = scales
+        self.interpolation = interpolation
+
+    def get_params(self):
+        return {"scale": random.choice(self.scales)}
+
+    def apply(self, img, scale=0, interpolation=cv2.INTER_LINEAR, **params):
+        return F.scale(img, scale, interpolation)
+
+    def apply_to_bbox(self, bbox, **params):
+        # Bounding box coordinates are scale invariant
+        return bbox
+
+    def apply_to_keypoint(self, keypoint, scale=0, **params):
+        return F.keypoint_scale(keypoint, scale, scale)
+
+    def get_transform_init_args(self):
+        return {"interpolation": self.interpolation, "scale_limit": to_tuple(self.scale_limit, bias=-1.0)}

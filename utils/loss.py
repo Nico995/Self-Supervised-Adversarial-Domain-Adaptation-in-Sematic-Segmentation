@@ -36,7 +36,6 @@ class DiceLoss(nn.Module):
         dice = intersect / denominator
         dice = torch.mean(dice)
         return 1 - dice
-        # return 1 - 2. * intersect / denominator
 
 
 def make_one_hot(labels, classes):
@@ -110,3 +109,17 @@ class EntropyLoss(nn.Module):
         h = -predictions * torch.log(predictions + epsilon)
         h = h.sum(dim=1).mean()
         return h
+
+
+class SoftLoss(nn.Module):
+    def __init__(self):
+        super(SoftLoss, self).__init__()
+
+    def forward(self, output, target):
+        assert output.shape == target.shape, "'input' and 'target' must have the same shape"
+        output = F.softmax(output, dim=1)
+        output = flatten(output)
+        target = flatten(target)
+        intersect = (output * target).sum(-1)
+        loss = -torch.log(intersect)
+        return torch.mean(loss)

@@ -1,6 +1,5 @@
 import os
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import tqdm
@@ -8,8 +7,10 @@ from tensorboardX import SummaryWriter
 
 from methods import validate_segmentation, train_segmentation
 from utils import intersection_over_union, plot_prediction
-from utils.utils import poly_lr_scheduler, batch_to_plottable_image, label_to_plottable_image
+from utils.utils import poly_lr_scheduler
 
+
+classes = ['Byc', 'Bld', 'Car', 'Pol', "Fnc", "Ped", "Rod", "Sdw", "Sin", "Sky", "Tre"]
 
 def validation(args, model, dataloader_val, criterion):
     """
@@ -22,7 +23,7 @@ def validation(args, model, dataloader_val, criterion):
 
     # Metrics initialization
     running_precision = []
-    running_confusion_matrix = np.zeros((args.num_classes, args.num_classes))
+    running_confusion_matrix = []
 
     for i, (data, label) in enumerate(dataloader_val):
         # Move images to gpu
@@ -35,21 +36,20 @@ def validation(args, model, dataloader_val, criterion):
         precision, confusion_matrix = validate_segmentation(model, data, label, criterion, args.loss, args.num_classes)
 
         # Store metrics
-        running_confusion_matrix += confusion_matrix
         running_precision.append(precision)
+        running_confusion_matrix.append(confusion_matrix)
 
         # Progress bar
         tq.update(args.batch_size)
+        # if i == 5:
+        #     break
 
     precision = np.mean(running_precision)
-    per_class_iou, mean_iou = intersection_over_union(confusion_matrix)
+    per_class_iou, mean_iou = intersection_over_union(torch.stack(running_confusion_matrix).sum(dim=0))
 
-    print('Global Precision [eval]: %.3f' % precision)
-    print('Mean IoU [eval]: %.3f' % mean_iou)
-    print('Per Class IoU [eval]: \n', list(per_class_iou))
     tq.close()
 
-    return precision, mean_iou
+    return precision, per_class_iou, mean_iou
 
 
 def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, criterion, scheduler):
@@ -112,6 +112,7 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
 
             tq.update(args.batch_size)
             tq.set_postfix(loss='%.6f' % loss)
+            # break
 
         # Update learning rate at the end of each batch
         # scheduler.step()
@@ -131,7 +132,7 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
             '''
             This is the actual content of the validation loop
             '''
-            precision, mean_iou = validation(args, model, dataloader_val, criterion)
+            precision, per_class_iou, mean_iou = validation(args, model, dataloader_val, criterion)
             # Save model if has better accuracy
             if mean_iou > best_mean_iou:
                 best_mean_iou = mean_iou
@@ -142,6 +143,10 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
             # Tensorboard Logging
             writer.add_scalar('epoch/precision_val', precision, epoch)
             writer.add_scalar('epoch/miou val', mean_iou, epoch)
+
+            print(f'global precision:\t\t {precision:.3f}')
+            print(f'mean iou:\t\t {mean_iou:.3f}')
+            print(f"per-class iou:\n {[f'{cls}: {iou:.3f}' for cls, iou in zip(classes, per_class_iou)]}")
 
         # Recurrent Checkpointing
         if (epoch + 1) % args.checkpoint_step == 0 or epoch == args.num_epochs:

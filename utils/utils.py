@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import torch
 import matplotlib.pyplot as plt
+from PIL import Image
+from torchvision.transforms import Compose, ToTensor, Normalize
 
 
 def get_label_info(csv_path):
@@ -160,8 +162,7 @@ def reverse_one_hot(image):
         with a depth size of 1, where each pixel value is the classified
         class key.
     """
-    image = image.permute(1, 2, 0)
-    x = torch.argmax(image, dim=-1)
+    x = torch.argmax(image, dim=0)
     return x
 
 
@@ -196,14 +197,26 @@ def get_confusion_matrix(pred, label, num_classes):
     Returns:
         Confusion matrix
     """
-    # Mask for pixels which have a class non void
-    mask = (label >= 0) & (label < num_classes)
+    '''
+    N.B. 
+    pred comes from pred=torch.argmax(pred), that moves the value range to 0->11 (because we have 12 layers, 1 per class)
+    
+    The way this piece of code is working is really intricate but smart. 
+    1) The code starts by creating a mask for predicted values that are not void (active classes)
+    2) After that, num_classes*pred[mask] shifts the classes apart of num_classes, which is wide enough to accept 
+    num_classes different values for each class (num_classes squared)
+    3) Finally, label[mask] gets summed to the previous value, this piece of information tells us which was the true
+    class associated with that prediction.
+    4) The vector is then run through bincount, which should yield one count for each value. Due to the sorted nature
+    of how the problem is built, specifying the minlength parameter is enough to account for those combinations that 
+    never appear
+    5) Reshaping the array to (num_classes, num_classes) essentially gives us a confusion matrix.
+    '''
 
-    # Computes the confusion matrix for the classes
-    return np.bincount(
-        num_classes * label[mask] + pred[mask],
-        minlength=num_classes ** 2
-    ).reshape(num_classes, num_classes)
+    # Mask for pixels which have a class non void
+    mask = (pred >= 0) & (pred < num_classes)
+
+    return torch.bincount(num_classes * pred[mask] + label[mask], minlength=num_classes**2).view(num_classes, num_classes).detach().cpu()
 
 
 def intersection_over_union(matrix, epsilon=1e-5):
@@ -231,11 +244,11 @@ def intersection_over_union(matrix, epsilon=1e-5):
     In both cases, epsilon is used to avoid numerical overflow.
     '''
 
-    correct_per_class = np.diag(matrix)
-    total_per_class = matrix.sum(axis=1)
-    ious = (correct_per_class) / (2 * total_per_class - correct_per_class + epsilon)
+    # correct_per_class = np.diag(matrix)
+    # total_per_class = matrix.sum(axis=1)
+    iou = np.diag(matrix) / (matrix.sum(axis=1) + matrix.sum(axis=0) - np.diag(matrix) + epsilon)
 
-    return ious, np.mean(ious)
+    return iou[:-1], torch.mean(iou[:-1])
 
 
 def seed_worker(worker_id):
@@ -272,29 +285,34 @@ def convert_class_to_color(img):
 
 
 def plot_prediction(model, dataloader_val, epoch, dataset='CamVid'):
+    if dataset == 'CamVid':
+        image_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/CamVid/test/Seq05VD_f01110.png'
+        label_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/CamVid/test_labels/Seq05VD_f01110_L.png'
+        normalize = Compose([
+            ToTensor(),
+            Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        ])
+    else:
+        print('not implemented')
+        exit(-1)
+
+    image = normalize(Image.open(image_path))
+    label = torch.tensor(encode_label_dice(Image.open(label_path), get_label_info('data/CamVid/class_dict.csv')))
+
     model.eval()
     with torch.no_grad():
-        for i, (data, label) in enumerate(dataloader_val):
-            label, data = label.cuda(), data.cuda()
-            fig, ax = plt.subplots(1, 2)
-            ax = ax.ravel()
-            predict = model(data)
-            predict_image = convert_class_to_color(reverse_one_hot(predict[0]))
-            ax[0].imshow(predict_image)
-            ax[0].set_title("predicted")
 
-            if dataset == 'IDDA':
-                label = label[0]
-                label_image = convert_class_to_color(reverse_one_hot(label))
-                # label_image = np.transpose(label_image, (1, 0, 2))
-            else:
-                label_image = convert_class_to_color(reverse_one_hot(label[0]))
+        image, label = image.cuda(), label.cuda()
+        fig, ax = plt.subplots(1, 2)
+        ax = ax.ravel()
+        predict = model(image.unsqueeze(0))
+        ax[0].imshow(convert_class_to_color(reverse_one_hot(predict[0])))
+        ax[0].set_title("predicted")
 
-            ax[1].imshow(label_image)
-            ax[1].set_title("label")
-            plt.savefig(f'images/pred_{epoch}')
-            plt.show()
-            return
+        ax[1].imshow(convert_class_to_color(reverse_one_hot(label)))
+        ax[1].set_title("label")
+        plt.savefig(f'images/pred_{epoch}')
+        plt.show()
 
 
 def batch_to_plottable_image(batch):
