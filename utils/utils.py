@@ -4,7 +4,7 @@ import pandas as pd
 import torch
 import matplotlib.pyplot as plt
 from PIL import Image
-from torchvision.transforms import Compose, ToTensor, Normalize
+from torchvision.transforms import Compose, ToTensor, Normalize, CenterCrop
 
 
 def get_label_info(csv_path):
@@ -84,8 +84,7 @@ def encode_label_crossentropy(label, label_info, void_index=11):
 def encode_label_idda_dice(label):
     class_map = [11, 1, 4, 11, 5, 3, 6, 6, 7, 10, 2, 11, 8, 11, 11, 11, 0, 11, 11, 11, 9, 11, 11, 11, 1, 11, 11]
 
-    # Convert PIL.Image to np.array
-    label = np.array(label.convert('RGB'))
+    label = np.array(label)
 
     # Build the first layer of the encoded image (void class)
     ohe_image = np.zeros(label.shape[:2] + (12,))
@@ -97,7 +96,7 @@ def encode_label_idda_dice(label):
         class_mask = np.equal(label, depth_class_color).all(axis=2)
         ohe_image[:, :, class_map[i]] += np.ones(class_mask.shape) * class_mask
 
-    return ohe_image
+    return np.transpose(ohe_image, (2, 0, 1))
 
 
 def encode_label_dice(label, label_info):
@@ -145,6 +144,7 @@ def encode_label_dice(label, label_info):
             ohe_image[class_map, 0] = 1
 
     ohe_image = np.roll(np.moveaxis(ohe_image, -1, 0), shift=-1, axis=0)
+
     return ohe_image
 
 
@@ -292,17 +292,26 @@ def plot_prediction(model, dataloader_val, epoch, dataset='CamVid'):
             ToTensor(),
             Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         ])
+        label = torch.tensor(encode_label_dice(Image.open(label_path), get_label_info('data/CamVid/class_dict.csv')))
+
     else:
-        print('not implemented')
-        exit(-1)
+        image_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/IDDA/test/@277534.306@110483.643@Town10@ClearNoon@audi@1608177277@0.9989667909618447@1.0008633323078084@3.6418137550354004@106604@.jpg'
+        label_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/IDDA/test_labels/@277534.306@110483.643@Town10@ClearNoon@audi@1608177277@0.9989667909618447@1.0008633323078084@3.6418137550354004@106604@.png'
+        normalize = Compose([
+            ToTensor(),
+            CenterCrop((720, 960)),
+            Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        ])
+        crop = Compose([
+            CenterCrop((720, 960)),
+        ])
+        label = torch.tensor(encode_label_idda_dice(np.array(crop(Image.open(label_path).convert('RGB')))))
 
     image = normalize(Image.open(image_path))
-    label = torch.tensor(encode_label_dice(Image.open(label_path), get_label_info('data/CamVid/class_dict.csv')))
-
     model.eval()
     with torch.no_grad():
 
-        image, label = image.cuda(), label.cuda()
+        image, label = image.cuda(), torch.tensor(label.cuda())
         fig, ax = plt.subplots(1, 2)
         ax = ax.ravel()
         predict = model(image.unsqueeze(0))
