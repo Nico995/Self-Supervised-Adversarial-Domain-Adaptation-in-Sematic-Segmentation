@@ -2,15 +2,18 @@ import glob
 import os
 import random
 
+import cv2
+import matplotlib.pyplot as plt
+from torchvision.transforms import functional as F, CenterCrop
+import albumentations as a
 import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Normalize, ToTensor, RandomCrop, Resize
-from torchvision.transforms import functional as F
 
-from utils import get_label_info, encode_label_idda_dice
-from utils.custom_transforms import RandomGaussianBlur, ColorDistortion
+from utils import encode_label_crossentropy, encode_label_dice, get_label_info, encode_label_idda_dice
+from utils.custom_transforms import RandomGaussianBlur, ColorDistortion, RandomDiscreteScale
 
 
 class IDDA(torch.utils.data.Dataset):
@@ -73,55 +76,46 @@ class IDDA(torch.utils.data.Dataset):
             self.label_list = [self.label_list[c] for c in choice]
             self.image_list = [self.image_list[c] for c in choice]
 
-        # Transformations
-        self.normalize = Compose([
-            ToTensor(),
-            Normalize((0.39068785, 0.40521392, 0.41434407), (0.29652068, 0.30514979, 0.30080369)),
+        self.transform = a.Compose([
+            a.HorizontalFlip(p=1),
+            RandomDiscreteScale(self.scales, p=1),
+            a.PadIfNeeded(image_size[0], image_size[1], border_mode=cv2.BORDER_WRAP),
+            a.RandomCrop(image_size[0], image_size[1], p=1)
         ])
 
         self.augment = Compose([ColorDistortion(), RandomGaussianBlur()])
 
+        # Transformations
+        self.normalize = Compose([
+            ToTensor(),
+            Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        ])
+
+        # Normalize((0.39068785, 0.40521392, 0.41434407), (0.29652068, 0.30514979, 0.30080369)),
+
     def __getitem__(self, index):
-        # Seed transformations (have to be the same random crop for image and label)
-        seed = int(random.random())
-        torch.random.manual_seed(seed)
-        random.seed(seed)
-
-        # Choose a random scale
-        random_scale = random.choice(self.scales)
-        scaled_image_size = (int(self.image_size[0] * random_scale), int(self.image_size[1] * random_scale))
-
         # Read images and transform
         image = Image.open(self.image_list[index])
-        image = Resize(scaled_image_size)(image)
-        image = RandomCrop(self.image_size, seed, pad_if_needed=True)(image)
 
-        # Read encode and transform label
-        if not self.pre_encoded:
-            # Labels are standard rgb images
-            label = Image.open(self.label_list[index]).convert("RGB")
-            label = Resize(scaled_image_size)(label)
-            label = RandomCrop(self.image_size, seed, pad_if_needed=True)(label)
+        # Labels are standard rgb images
+        label = Image.open(self.label_list[index]).convert("RGB")
 
-            # Encode label
+        if self.mode == 'train':
+            trn = self.transform(image=np.array(image), mask=np.array(label))
+            image, label = trn['image'], trn['mask']
+
+        if self.mode == 'train' and self.do_augmentation:
+            image = self.augment(image)
+
+        # Encode label
+        if self.loss == 'dice':
+            # Encode label image
             label = encode_label_idda_dice(label).astype(np.uint8)
-            label = np.transpose(label, (2, 0, 1))
             label = torch.from_numpy(label)
 
-            # if self.loss == 'crossentropy':
-        else:
-            # Labels are numpy.ndarrays
-            label = np.moveaxis(np.load(self.label_list[index])["a"], -1, 0)
-            label = torch.tensor(label)
-            label = Resize(scaled_image_size)(label)
-            label = RandomCrop(self.image_size, seed, pad_if_needed=True)(label)
-
-        if self.do_augmentation and self.mode == 'train':
-            flip = torch.rand(1)
-            if flip < 0.75:
-                image = F.hflip(image)
-                label = F.hflip(label)
-            image = self.augment(image)
+        elif self.loss == 'crossentropy':
+            print('not implemented')
+            exit(-1)
 
         image = self.normalize(image).float()
         return image, label
