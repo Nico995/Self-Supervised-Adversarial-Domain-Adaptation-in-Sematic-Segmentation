@@ -18,7 +18,7 @@ def validation(args, model, dataloader_val, criterion):
     """
 
     # Progress bar
-    tq = tqdm.tqdm(total=len(dataloader_val) * args.batch_size)
+    tq = tqdm.tqdm(total=len(dataloader_val))
     tq.set_description('val')
 
     # Metrics initialization
@@ -40,9 +40,7 @@ def validation(args, model, dataloader_val, criterion):
         running_confusion_matrix.append(confusion_matrix)
 
         # Progress bar
-        tq.update(args.batch_size)
-        # if i == 5:
-        #     break
+        tq.update(1)
 
     precision = np.mean(running_precision)
     per_class_iou, mean_iou = intersection_over_union(torch.stack(running_confusion_matrix).sum(dim=0))
@@ -77,7 +75,7 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
         ###
 
         # Progress bar
-        tq = tqdm.tqdm(total=len(dataloader_train) * args.batch_size)
+        tq = tqdm.tqdm(total=len(dataloader_train))
         # tq.set_description('epoch %d, lr %.3f' % (epoch + 1, scheduler.state_dict()["_last_lr"][0]))
         tq.set_description('epoch %d, lr %.3f' % (epoch + 1, lr))
 
@@ -85,6 +83,7 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
         # Batch loop
 
         for i, (data, label) in enumerate(dataloader_train):
+            # Uncomment this to visualize the batch images and labels
             # plt.imshow(batch_to_plottable_image(data))
             # plt.show()
             # plt.imshow(label_to_plottable_image(label))
@@ -110,9 +109,8 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
             writer.add_scalar('loss_step', loss, step)
             loss_record.append(loss)
 
-            tq.update(args.batch_size)
+            tq.update(1)
             tq.set_postfix(loss='%.6f' % loss)
-            # break
 
         # Update learning rate at the end of each batch
         # scheduler.step()
