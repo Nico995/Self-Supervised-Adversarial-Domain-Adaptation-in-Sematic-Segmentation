@@ -6,7 +6,7 @@ from dataset import camvid_data_loaders, idda_data_loaders
 from model import BiSeNet
 from methods.segmentation.training import training
 from utils import load_segm_args, DiceLoss
-from utils.loss import DiceLossV2
+from utils.loss import DiceLossV2, OhemCELoss
 
 
 def main():
@@ -53,8 +53,13 @@ def main():
     if args.loss == 'dice':
         criterion = DiceLoss()
         # criterion = DiceLossV2()
-    else:
+    elif args.loss == 'crossentropy':
         criterion = torch.nn.CrossEntropyLoss()
+    elif args.loss == 'ohemce':
+        criterion = OhemCELoss(0.7)
+    else:
+        NotImplementedError()
+        exit()
 
     # Enable cuDNN auto-tuner
     torch.backends.cudnn.benchmark = True
