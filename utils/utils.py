@@ -99,6 +99,14 @@ def encode_label_idda_dice(label):
     return np.transpose(ohe_image, (2, 0, 1))
 
 
+def encode_label_idda_crossentropy(label):
+    class_map = [11, 1, 4, 11, 5, 3, 6, 6, 7, 10, 2, 11, 8, 11, 11, 11, 0, 11, 11, 11, 9, 11, 11, 11, 1, 11, 11]
+
+    label = np.array(label)
+    # Build the first layer of the encoded image (void class)
+    return np.array([class_map[v] for v in np.max(label, axis=-1).flatten()]).reshape(label.shape[:2])
+
+
 def encode_label_dice(label, label_info):
     """
     Encodes the label images for Dice Loss.
@@ -179,7 +187,6 @@ def global_accuracy(pred, label):
     """
     pred = pred.flatten()
     label = label.flatten()
-
     total = len(label)
     count = (pred == label).sum()
     return float(count) / float(total)
@@ -295,17 +302,13 @@ def plot_prediction(model, dataloader_val, epoch, dataset='CamVid'):
         label = torch.tensor(encode_label_dice(Image.open(label_path), get_label_info('data/CamVid/class_dict.csv')))
 
     else:
-        image_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/IDDA/test/@277534.306@110483.643@Town10@ClearNoon@audi@1608177277@0.9989667909618447@1.0008633323078084@3.6418137550354004@106604@.jpg'
-        label_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/IDDA/test_labels/@277534.306@110483.643@Town10@ClearNoon@audi@1608177277@0.9989667909618447@1.0008633323078084@3.6418137550354004@106604@.png'
+        image_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/IDDA/test/@277531.725@110474.014@Town10@ClearNoon@audi@1608329311@0.998879709441141@1.000840205377106@0.7391348481178284@242616@.jpg'
+        label_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/IDDA/test_labels/@277531.725@110474.014@Town10@ClearNoon@audi@1608329311@0.998879709441141@1.000840205377106@0.7391348481178284@242616@.png'
         normalize = Compose([
             ToTensor(),
-            CenterCrop((720, 960)),
             Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         ])
-        crop = Compose([
-            CenterCrop((720, 960)),
-        ])
-        label = torch.tensor(encode_label_idda_dice(np.array(crop(Image.open(label_path).convert('RGB')))))
+        label = torch.tensor(encode_label_idda_dice(np.array(Image.open(label_path).convert('RGB'))))
 
     image = normalize(Image.open(image_path))
     model.eval()
@@ -347,3 +350,10 @@ def poly_lr_scheduler(optimizer, init_lr, iter, lr_decay_iter=1, max_iter=300, p
     optimizer.param_groups[0]['lr'] = lr
     return lr
 # return lr
+
+
+def prob_2_entropy(prob):
+    """ convert probabilistic prediction maps to weighted self-information maps
+    """
+    n, c, h, w = prob.size()
+    return -torch.mul(prob, torch.log2(prob + 1e-30)) / np.log2(c)
