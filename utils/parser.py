@@ -52,6 +52,7 @@ def load_da_args():
     # Training config
     parser.add_argument('--num_epochs', type=int, default=50, help='Number of epochs to train for')
     parser.add_argument('--learning_rate', type=float, default=0.025, help='learning rate used for train')
+    parser.add_argument('--learning_rate_disc', type=float, default=0.0001, help='learning rate used for train')
     parser.add_argument('--source_batch_size', type=int, default=2, help='Number of images in each batch')
     parser.add_argument('--target_batch_size', type=int, default=2, help='Number of images in each batch')
 
