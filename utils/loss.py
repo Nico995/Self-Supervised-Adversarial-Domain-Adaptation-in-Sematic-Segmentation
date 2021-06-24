@@ -62,7 +62,25 @@ class DiceLossV2(nn.Module):
         loss = 1 - ((2. * intersection + self.smooth) /
                     (output_flat.sum() + target_flat.sum() + self.smooth))
         return loss
-#
+
+
+class OhemCELoss(nn.Module):
+
+    def __init__(self, thresh, ignore_lb=11):
+        super(OhemCELoss, self).__init__()
+        self.thresh = -torch.log(torch.tensor(thresh, requires_grad=False, dtype=torch.float)).cuda()
+        self.ignore_lb = ignore_lb
+        self.criteria = nn.CrossEntropyLoss(ignore_index=ignore_lb, reduction='none')
+
+    def forward(self, logits, labels):
+        n_min = labels[labels != self.ignore_lb].numel() // 16
+        loss = self.criteria(logits, labels).view(-1)
+        loss_hard = loss[loss > self.thresh]
+        if loss_hard.numel() < n_min:
+            loss_hard, _ = loss.topk(n_min)
+        return torch.mean(loss_hard)
+
+
 # class EntropyLoss(nn.Module):
 #     def __init__(self):
 #         super(EntropyLoss, self).__init__()
@@ -123,3 +141,10 @@ class SoftLoss(nn.Module):
         intersect = (output * target).sum(-1)
         loss = -torch.log(intersect)
         return torch.mean(loss)
+
+
+def bce_loss(y_pred, y_label):
+    y_truth_tensor = torch.FloatTensor(y_pred.size())
+    y_truth_tensor.fill_(y_label)
+    y_truth_tensor = y_truth_tensor.to(y_pred.get_device())
+    return nn.BCEWithLogitsLoss()(y_pred, y_truth_tensor)
