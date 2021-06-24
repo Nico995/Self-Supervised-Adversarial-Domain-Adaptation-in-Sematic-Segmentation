@@ -42,6 +42,10 @@ def validation(args, model, dataloader_val, criterion):
         # Progress bar
         tq.update(1)
 
+        # Early stopping when training IDDA
+        if i >= 233:
+            break
+
     precision = np.mean(running_precision)
     per_class_iou, mean_iou = intersection_over_union(torch.stack(running_confusion_matrix).sum(dim=0))
 
@@ -80,8 +84,8 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
         tq.set_description('epoch %d, lr %.3f' % (epoch + 1, lr))
 
         loss_record = []
-        # Batch loop
 
+        # Batch loop
         for i, (data, label) in enumerate(dataloader_train):
             # Uncomment this to visualize the batch images and labels
             # plt.imshow(batch_to_plottable_image(data))
@@ -112,6 +116,9 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
             tq.update(1)
             tq.set_postfix(loss='%.6f' % loss)
 
+            # Early stopping when training IDDA
+            if i >= 78:
+                break
         # Update learning rate at the end of each batch
         # scheduler.step()
 
@@ -137,6 +144,9 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
                 # Save weights
                 os.makedirs(args.save_model_path, exist_ok=True)
                 torch.save(model.state_dict(), os.path.join(args.save_model_path, 'best_dice_loss.pth'))
+
+            for cls, iou in zip(classes, per_class_iou):
+                writer.add_scalar(f'epoch/{cls}_iou', iou, epoch)
 
             # Tensorboard Logging
             writer.add_scalar('epoch/precision_val', precision, epoch)
