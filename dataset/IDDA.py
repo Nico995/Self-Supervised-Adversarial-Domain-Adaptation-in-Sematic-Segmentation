@@ -14,6 +14,7 @@ from torchvision.transforms import Compose, Normalize, ToTensor, RandomCrop, Res
 
 from utils import encode_label_crossentropy, encode_label_dice, get_label_info, encode_label_idda_dice
 from utils.custom_transforms import RandomGaussianBlur, ColorDistortion, RandomDiscreteScale
+from utils.utils import encode_label_idda_crossentropy
 
 
 class IDDA(torch.utils.data.Dataset):
@@ -77,7 +78,7 @@ class IDDA(torch.utils.data.Dataset):
             self.image_list = [self.image_list[c] for c in choice]
 
         self.transform = a.Compose([
-            a.HorizontalFlip(p=1),
+            a.HorizontalFlip(p=0.5),
             RandomDiscreteScale(self.scales, p=1),
             a.PadIfNeeded(image_size[0], image_size[1], border_mode=cv2.BORDER_WRAP),
             a.RandomCrop(image_size[0], image_size[1], p=1)
@@ -114,8 +115,8 @@ class IDDA(torch.utils.data.Dataset):
             label = torch.from_numpy(label)
 
         elif self.loss == 'crossentropy':
-            print('not implemented')
-            exit(-1)
+            label = encode_label_idda_crossentropy(label)
+            label = torch.from_numpy(label)
 
         image = self.normalize(image).float()
         return image, label

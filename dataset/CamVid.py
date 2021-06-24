@@ -73,11 +73,10 @@ class CamVid(torch.utils.data.Dataset):
                 self.label_list.extend(glob.glob(os.path.join(label_path_, f'*.png')))
             else:
                 self.label_list.extend(glob.glob(os.path.join(label_path_, f'*.npy')))
-
         self.label_list.sort()
 
         self.transform = a.Compose([
-            a.HorizontalFlip(p=1),
+            a.HorizontalFlip(p=0.5),
             RandomDiscreteScale(self.scales, p=1),
             a.PadIfNeeded(image_size[0], image_size[1], border_mode=cv2.BORDER_WRAP),
             a.RandomCrop(image_size[0], image_size[1], p=1)
