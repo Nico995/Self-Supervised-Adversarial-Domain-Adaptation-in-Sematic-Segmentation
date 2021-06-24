@@ -6,7 +6,9 @@ import tqdm
 from tensorboardX import SummaryWriter
 
 from methods import train_minent, validate_minent
+from methods.adaptation.advent import train_advent
 from utils import intersection_over_union
+from utils.utils import poly_lr_scheduler
 
 
 def validation(args, model, dataloader_target_val, adaptation_criterion):
@@ -30,7 +32,8 @@ def validation(args, model, dataloader_target_val, adaptation_criterion):
         '''
         This is the actual content of the VALIDATION loop.
         '''
-        entropy, precision, confusion_matrix = validate_minent(model, data, label, adaptation_criterion, args.loss, args.num_classes)
+        entropy, precision, confusion_matrix = validate_minent(model, data, label, adaptation_criterion, args.loss,
+                                                               args.num_classes)
 
         # Store metrics
         running_entropy.append(entropy)
@@ -52,8 +55,10 @@ def validation(args, model, dataloader_target_val, adaptation_criterion):
 
     return entropy, precision, mean_iou
 
-def training(args, model, optimizer, source_criterion, adaptation_criterion, scaler, scheduler, dataloader_source_train, dataloader_target_train,
-             dataloader_source_val, dataloader_target_val):
+
+def training(args, model, main_discrim, aux_discrim, model_optimizer, main_discrim_optimizer, aux_discrim_optimizer,
+             source_criterion, adaptation_criterion, scaler, dataloader_source_train, dataloader_target_train,
+             dataloader_source_val, dataloader_target_val, lambda_adv_main, lambda_adv_aux):
     """
     This is the common double-loop structure that most of us are familiar with.
     One must look here if they're looking for:
@@ -72,63 +77,88 @@ def training(args, model, optimizer, source_criterion, adaptation_criterion, sca
 
     # Epoch loop
     for epoch in range(args.num_epochs):
-        # Progress bar
-        tq = tqdm.tqdm(total=len(dataloader_source_train) * args.source_batch_size)
-        tq.set_description('epoch %d, lr %.3f' % (epoch + 1, scheduler.state_dict()["_last_lr"][0]))
 
-        running_source_loss = []
-        running_target_loss = []
+        ###
+        lr_train = poly_lr_scheduler(model_optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
+        lr_discrim_main = poly_lr_scheduler(main_discrim_optimizer, args.learning_rate_disc, iter=epoch,
+                                            max_iter=args.num_epochs)
+        # lr_discrim_aux = poly_lr_scheduler(aux_discrim_optimizer, args.learning_rate_disc, iter=epoch,
+                                           # max_iter=args.num_epochs)
+        ###
+
+        # Progress bar
+        tq = tqdm.tqdm(total=len(dataloader_source_train))
+        # tq.set_description(f'epoch {epoch + 1}, lr: [m:{lr_train:.3f} dm:{lr_discrim_main:.3f} da:{lr_discrim_aux:.3f}')
+        tq.set_description(f'epoch {epoch + 1}, lr: [m:{lr_train:.3f} dm:{lr_discrim_main:.3f}')
+
+        running_src_seg_loss = []
+        running_trg_adv_loss = []
+        running_src_discrim_loss = []
+        running_trg_discrim_loss = []
         # Batch loop
         for i, (source_data, target_data) in enumerate(zip(dataloader_source_train, dataloader_target_train)):
             # Move images to gpu
-            source_data, source_label = source_data[0], source_data[1]
-            target_data = target_data[0]
+            source_images, source_labels = source_data[0], source_data[1]
+            target_images = target_data[0]
 
             '''
             This is the actual content of the TRAINING loop.
             '''
-            source_loss, target_loss = train_minent(model, source_data, source_label, target_data, optimizer, scaler, source_criterion, adaptation_criterion)
+            src_seg_loss, trg_adv_loss, src_discrim_loss, trg_discrim_loss = \
+                train_advent(model, main_discrim, aux_discrim, model_optimizer, main_discrim_optimizer,
+                             aux_discrim_optimizer, source_images, source_labels, target_images,
+                             scaler, source_criterion, lambda_adv_main, lambda_adv_aux)
 
             # Logging & progress bar
             step += 1
-            writer.add_scalar('source_loss_step', source_loss, step)
-            writer.add_scalar('target_loss_step', target_loss, step)
-            running_source_loss.append(source_loss)
-            running_target_loss.append(target_loss)
+            writer.add_scalar('src_seg_loss', src_seg_loss, step)
+            writer.add_scalar('trg_adv_loss', trg_adv_loss, step)
+            writer.add_scalar('src_discrim_loss', src_discrim_loss, step)
+            writer.add_scalar('trg_discrim_loss', trg_discrim_loss, step)
+            running_src_seg_loss.append(src_seg_loss)
+            running_trg_adv_loss.append(trg_adv_loss)
+            running_src_discrim_loss.append(src_discrim_loss)
+            running_trg_discrim_loss.append(trg_discrim_loss)
 
-            tq.update(args.source_batch_size)
-            tq.set_postfix({'source_loss': f'{source_loss:.6f}', 'target_loss': f'{target_loss:.6f}'})
-
-        # Update learning rate at the end of each batch
-        scheduler.step()
+            tq.update(1)
+            tq.set_postfix({'src_seg_loss': f'{src_seg_loss:.6f}', 'trg_adv_loss': f'{trg_adv_loss:.6f}',
+                            'src_discrim_loss': f'{src_discrim_loss:.6f}',
+                            'trg_discrim_loss': f'{trg_discrim_loss:.6f}'})
 
         # Logging & progress bar
-        source_loss_train_mean = np.mean(running_source_loss)
-        target_loss_train_mean = np.mean(running_target_loss)
-        writer.add_scalar('epoch/source_loss_train_mean', float(source_loss_train_mean), epoch)
-        writer.add_scalar('epoch/target_loss_train_mean', float(target_loss_train_mean), epoch)
+        src_seg_loss_mean = np.mean(running_src_seg_loss)
+        trg_adv_loss_mean = np.mean(running_trg_adv_loss)
+        src_discrim_loss_mean = np.mean(running_src_discrim_loss)
+        trg_discrim_loss_mean = np.mean(running_trg_discrim_loss)
 
-        tq.set_postfix({'source_loss_train_mean': f'{source_loss_train_mean:.6f}',
-                        'target_loss_train_mean': f'{target_loss_train_mean:.6f}'})
+        writer.add_scalar('epoch/src_seg_loss_mean', float(src_seg_loss_mean), epoch)
+        writer.add_scalar('epoch/trg_adv_loss_mean', float(trg_adv_loss_mean), epoch)
+        writer.add_scalar('epoch/src_discrim_loss_mean', float(src_discrim_loss_mean), epoch)
+        writer.add_scalar('epoch/trg_discrim_loss_mean', float(trg_discrim_loss_mean), epoch)
+
+        tq.set_postfix({'src_seg_loss_mean': f'{src_seg_loss_mean:.6f}',
+                        'trg_adv_loss_mean': f'{trg_adv_loss_mean:.6f}',
+                        'src_discrim_loss_mean': f'{src_discrim_loss_mean:.6f}',
+                        'trg_discrim_loss_mean': f'{trg_discrim_loss_mean:.6f}'})
         tq.close()
 
-        # Validation step
-        if (epoch + 1) % args.validation_step == 0 or epoch == args.num_epochs:
-            '''
-            This is the actual content of the validation loop
-            '''
-            entropy, precision, mean_iou = validation(args, model, dataloader_target_val, adaptation_criterion)
-            # Save model if has better accuracy
-            if mean_iou > best_mean_iou:
-                best_mean_iou = mean_iou
-                # Save weights
-                os.makedirs(args.save_model_path, exist_ok=True)
-                torch.save(model.state_dict(), os.path.join(args.save_model_path, 'best_dice_loss.pth'))
-
-            # Tensorboard Logging
-            writer.add_scalar('epoch/entropy', entropy, epoch)
-            writer.add_scalar('epoch/precision_val', precision, epoch)
-            writer.add_scalar('epoch/miou val', mean_iou, epoch)
+        # # Validation step
+        # if (epoch + 1) % args.validation_step == 0 or epoch == args.num_epochs:
+        #     '''
+        #     This is the actual content of the validation loop
+        #     '''
+        #     entropy, precision, mean_iou = validation(args, model, dataloader_target_val, adaptation_criterion)
+        #     # Save model if has better accuracy
+        #     if mean_iou > best_mean_iou:
+        #         best_mean_iou = mean_iou
+        #         # Save weights
+        #         os.makedirs(args.save_model_path, exist_ok=True)
+        #         torch.save(model.state_dict(), os.path.join(args.save_model_path, 'best_dice_loss.pth'))
+        #
+        #     # Tensorboard Logging
+        #     writer.add_scalar('epoch/entropy', entropy, epoch)
+        #     writer.add_scalar('epoch/precision_val', precision, epoch)
+        #     writer.add_scalar('epoch/miou val', mean_iou, epoch)
 
         # Recurrent Checkpointing
         if (epoch + 1) % args.checkpoint_step == 0 or epoch == args.num_epochs:
