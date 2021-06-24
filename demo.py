@@ -9,59 +9,50 @@ from dataset import camvid_data_loaders, idda_data_loaders
 from model import BiSeNet
 from utils import load_segm_args, reverse_one_hot, convert_class_to_color
 # from model_old.build_BiSeNet import BiSeNet
-from utils.utils import batch_to_plottable_image
+from utils.utils import batch_to_plottable_image, encode_label_dice, get_label_info, encode_label_idda_dice
 from PIL import Image
-if __name__ == '__main__':
 
-    # Reproducibility
-    # # seed the RNG for all devices (both CPU and CUDA)
-    # torch.manual_seed(seed)
-    # # python seed
-    # random.seed(seed)
-    # # seed the global NumPy RNG
-    # np.random.seed(seed)
+if __name__ == '__main__':
 
     # Read command line arguments
     args = load_segm_args()
 
-    # Get dataloader structures
-
-    if args.dataset == 'IDDA':
-        _, dataloader_val = idda_data_loaders(args.data, 1, 1, args.loss, args.pre_encoded, args.crop_height, args.crop_width, shuffle=True)
-    else:
-        image = Image.open('/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/CamVid/test/0001TP_008550.png')
-        plt.imshow(np.array(image))
-        plt.show()
-        label = Image.open('/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/CamVid/test_labels/0001TP_008550_L.png')
-        image = Compose([
-            ToTensor(),
-            Normalize((0.39068785, 0.40521392, 0.41434407), (0.29652068, 0.30514979, 0.30080369))])(image).unsqueeze(0)
-            # Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
-
-    # build model
-    model = BiSeNet(args.num_classes, args.context_path)
+    model = BiSeNet(args.num_classes, args.context_path).cuda()
     model.load_state_dict(torch.load(args.pretrained_model_path))
+
+    #weighted crossentropy
+    #hard negative mining
+    #focal loss
+    if args.dataset == 'CamVid':
+        image_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/CamVid/test/Seq05VD_f01110.png'
+        label_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/CamVid/test_labels/Seq05VD_f01110_L.png'
+        normalize = Compose([
+            ToTensor(),
+            Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        ])
+        label = torch.tensor(encode_label_dice(Image.open(label_path), get_label_info('data/CamVid/class_dict.csv')))
+
+    else:
+        image_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/IDDA/test/@277548.198@110606.177@Town10@ClearNoon@audi@1608476889@1.0000747884809016@1.0009874550785103@0.006818489637225866@373573@.jpg'
+        label_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/IDDA/test_labels/@277548.198@110606.177@Town10@ClearNoon@audi@1608476889@1.0000747884809016@1.0009874550785103@0.006818489637225866@373573@.png'
+        normalize = Compose([
+            ToTensor(),
+            Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        ])
+        label = torch.tensor(encode_label_idda_dice(np.array(Image.open(label_path).convert('RGB'))))
+
+    image = normalize(Image.open(image_path))
     model.eval()
 
-    plt.imshow(batch_to_plottable_image(image))
-    plt.show()
+    image, label = image.cuda(), torch.tensor(label.cuda())
     fig, ax = plt.subplots(1, 2)
     ax = ax.ravel()
-
-    predict = model(image)
-    predict_image = convert_class_to_color(reverse_one_hot(predict[0]))
-    ax[0].imshow(predict_image)
+    predict = model(image.unsqueeze(0))
+    ax[0].imshow(convert_class_to_color(reverse_one_hot(predict[0])))
     ax[0].set_title("predicted")
 
-    if args.dataset == 'IDDA':
-        label = label[0]
-        label_image = convert_class_to_color(reverse_one_hot(label))
-        # label_image = np.transpose(label_image, (1, 0, 2))
-    else:
-        pass
-        # label_image = convert_class_to_color(reverse_one_hot(label[0]))
-
-    ax[1].imshow(label)
+    ax[1].imshow(convert_class_to_color(reverse_one_hot(label)))
     ax[1].set_title("label")
     plt.show()
+
     exit()
