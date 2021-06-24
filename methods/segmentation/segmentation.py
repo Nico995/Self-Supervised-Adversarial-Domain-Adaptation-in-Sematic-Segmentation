@@ -6,9 +6,6 @@ from utils import reverse_one_hot, global_accuracy, get_confusion_matrix, inters
 
 
 def train_segmentation(model, data, label, optimizer, scaler, criterion, loss):
-    if loss == 'crossentropy':
-        label = torch.argmax(label, dim=1).long()
-
     # Set model to Train mode
     model.train()
 
@@ -47,9 +44,11 @@ def validate_segmentation(model, data, label, criterion, loss, classes):
         predict = reverse_one_hot(predict)
         # predict = np.array(predict.detach().cpu())
 
-        # get RGB label image
+        # get RGB label image and remove batch dimension
         label = label.squeeze()
-        label = reverse_one_hot(label)
+        if loss == 'dice':
+            label = reverse_one_hot(label)
+
         # label = np.array(label.detach().cpu())
 
         # compute per pixel accuracy
