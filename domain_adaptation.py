@@ -1,10 +1,11 @@
 import torch
 from torch.cuda.amp import GradScaler
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+from torch.nn import Upsample
 
 from dataset import camvid_data_loaders, idda_data_loaders
 from methods.adaptation.training import training
-from model import BiSeNet
+from model import BiSeNet, Discriminator
 from utils import DiceLoss
 from utils import load_da_args
 from utils.loss import EntropyLoss
@@ -33,23 +34,25 @@ def main():
 
     # build model
     model = BiSeNet(args.num_classes, args.context_path).cuda()
+    main_discrim = Discriminator(12).cuda()
+    # aux_discrim = Discriminator(2)
 
     dataloader_target_train, dataloader_target_val, len_images = \
         camvid_data_loaders(args.target_data, args.target_batch_size, args.num_workers, args.loss,
                             args.pre_encoded, args.crop_height, args.crop_width, shuffle=True, train_length=True,
                             do_augmentation=False)
-
     dataloader_source_train, dataloader_source_val = \
         idda_data_loaders(args.source_data, args.source_batch_size, args.num_workers, args.loss, args.pre_encoded,
                           args.crop_height, args.crop_width, shuffle=True, max_images=len_images, do_augmentation=False)
 
     # build optimizer
-    if args.optimizer == 'rmsprop':
-        optimizer = torch.optim.RMSprop(model.parameters(), args.learning_rate)
-    elif args.optimizer == 'sgd':
-        optimizer = torch.optim.SGD(model.parameters(), args.learning_rate)
-    else:  # adam
-        optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
+    model_optimizer = torch.optim.SGD(model.parameters(), args.learning_rate)
+    main_discrim_optimizer = torch.optim.Adam(main_discrim.parameters(), 0.001, betas=(0.9, 0.99))
+    # aux_discrim_optimizer = torch.optim.Adam(aux_discrim.parameters(), 0.0002, betas=(0.9, 0.99))
+
+    # interpolate output segmaps
+    interp = Upsample(size=(args.crop_height, args.crop_width), mode='bilinear', align_corners=True)
+    interp_target = Upsample(size=(args.crop_height, args.crop_width), mode='bilinear',  align_corners=True)
 
     # Loss function
     source_criterion = torch.nn.CrossEntropyLoss()
@@ -61,11 +64,13 @@ def main():
     # Add Gradscaler to prevent gradient underflowing under mixed precision training
     scaler = GradScaler()
 
-    scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=1, eta_min=0.005)
+    lambda_adv_main = 0.001
+    lambda_adv_aux = 0.0002
 
     # train
-    training(args, model, optimizer, source_criterion, adaptation_criterion, scaler, scheduler,
-             dataloader_source_train, dataloader_target_train, dataloader_source_val, dataloader_target_val)
+    training(args, model, main_discrim, None, model_optimizer, main_discrim_optimizer, None,
+             source_criterion, adaptation_criterion, scaler, dataloader_source_train, dataloader_target_train,
+             dataloader_source_val, dataloader_target_val, lambda_adv_main, lambda_adv_aux)
 
 
 if __name__ == '__main__':
