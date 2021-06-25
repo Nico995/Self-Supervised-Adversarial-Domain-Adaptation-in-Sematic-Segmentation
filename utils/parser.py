@@ -78,7 +78,6 @@ def load_da_args():
     # Model architecture config
     parser.add_argument('--context_path', type=str, default="resnet101", help='The context path backbone model to use.')
     parser.add_argument('--num_classes', type=int, default=12, help='num of object classes (with void)')
-    parser.add_argument('--pretrained_weights', type=str, help='path to model pretrained on source data')
 
     # Misc
     parser.add_argument('--pre_encoded', action='store_true', help='whether to use pre encoded labels or not')
