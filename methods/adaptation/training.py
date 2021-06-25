@@ -5,10 +5,11 @@ import torch
 import tqdm
 from tensorboardX import SummaryWriter
 
-from methods import train_minent, validate_minent
-from methods.adaptation.advent import train_advent
+from methods.adaptation.advent import train_advent, validate_advent
 from utils import intersection_over_union
 from utils.utils import poly_lr_scheduler
+
+classes = ['Byc', 'Bld', 'Car', 'Pol', "Fnc", "Ped", "Rod", "Sdw", "Sin", "Sky", "Tre"]
 
 
 def validation(args, model, dataloader_target_val, adaptation_criterion):
@@ -16,13 +17,12 @@ def validation(args, model, dataloader_target_val, adaptation_criterion):
     This function contains the validation loop
     """
     # Progress bar
-    tq = tqdm.tqdm(total=len(dataloader_target_val) * args.target_batch_size)
+    tq = tqdm.tqdm(total=len(dataloader_target_val))
     tq.set_description('val')
 
     # Metrics initialization
-    running_entropy = []
     running_precision = []
-    running_confusion_matrix = np.zeros((args.num_classes, args.num_classes))
+    running_confusion_matrix = []
 
     for i, (data, label) in enumerate(dataloader_target_val):
         # Move images to gpu
@@ -32,28 +32,23 @@ def validation(args, model, dataloader_target_val, adaptation_criterion):
         '''
         This is the actual content of the VALIDATION loop.
         '''
-        entropy, precision, confusion_matrix = validate_minent(model, data, label, adaptation_criterion, args.loss,
-                                                               args.num_classes)
+        precision, confusion_matrix = validate_advent(model, data, label, adaptation_criterion, args.loss,
+                                                      args.num_classes)
 
         # Store metrics
-        running_entropy.append(entropy)
         running_precision.append(precision)
         running_confusion_matrix += confusion_matrix
 
         # Progress bar
-        tq.update(args.target_batch_size)
+        tq.update(1)
 
-    entropy = np.mean(running_entropy)
     precision = np.mean(running_precision)
-    per_class_iou, mean_iou = intersection_over_union(confusion_matrix)
+    print(torch.stack(running_confusion_matrix).sum(dim=0).shape)
+    per_class_iou, mean_iou = intersection_over_union(torch.stack(running_confusion_matrix).sum(dim=0))
 
-    print('Entropy [eval]: %.3f' % entropy)
-    print('Global Precision [eval]: %.3f' % precision)
-    print('Mean IoU [eval]: %.3f' % mean_iou)
-    print('Per Class IoU [eval]: \n', list(per_class_iou))
     tq.close()
 
-    return entropy, precision, mean_iou
+    return precision, per_class_iou, mean_iou
 
 
 def training(args, model, main_discrim, aux_discrim, model_optimizer, main_discrim_optimizer, aux_discrim_optimizer,
@@ -83,7 +78,7 @@ def training(args, model, main_discrim, aux_discrim, model_optimizer, main_discr
         lr_discrim_main = poly_lr_scheduler(main_discrim_optimizer, args.learning_rate_disc, iter=epoch,
                                             max_iter=args.num_epochs)
         # lr_discrim_aux = poly_lr_scheduler(aux_discrim_optimizer, args.learning_rate_disc, iter=epoch,
-                                           # max_iter=args.num_epochs)
+        # max_iter=args.num_epochs)
         ###
 
         # Progress bar
@@ -125,6 +120,7 @@ def training(args, model, main_discrim, aux_discrim, model_optimizer, main_discr
                             'src_discrim_loss': f'{src_discrim_loss:.6f}',
                             'trg_discrim_loss': f'{trg_discrim_loss:.6f}'})
 
+            break
         # Logging & progress bar
         src_seg_loss_mean = np.mean(running_src_seg_loss)
         trg_adv_loss_mean = np.mean(running_trg_adv_loss)
@@ -142,26 +138,32 @@ def training(args, model, main_discrim, aux_discrim, model_optimizer, main_discr
                         'trg_discrim_loss_mean': f'{trg_discrim_loss_mean:.6f}'})
         tq.close()
 
-        # # Validation step
-        # if (epoch + 1) % args.validation_step == 0 or epoch == args.num_epochs:
-        #     '''
-        #     This is the actual content of the validation loop
-        #     '''
-        #     entropy, precision, mean_iou = validation(args, model, dataloader_target_val, adaptation_criterion)
-        #     # Save model if has better accuracy
-        #     if mean_iou > best_mean_iou:
-        #         best_mean_iou = mean_iou
-        #         # Save weights
-        #         os.makedirs(args.save_model_path, exist_ok=True)
-        #         torch.save(model.state_dict(), os.path.join(args.save_model_path, 'best_dice_loss.pth'))
-        #
-        #     # Tensorboard Logging
-        #     writer.add_scalar('epoch/entropy', entropy, epoch)
-        #     writer.add_scalar('epoch/precision_val', precision, epoch)
-        #     writer.add_scalar('epoch/miou val', mean_iou, epoch)
+        # Validation step
+        if (epoch + 1) % args.validation_step == 0 or epoch == args.num_epochs:
+            '''
+            This is the actual content of the validation loop
+            '''
+            precision, per_class_iou, mean_iou = validation(args, model, dataloader_target_val, adaptation_criterion)
+            # Save model if has better accuracy
+            if mean_iou > best_mean_iou:
+                best_mean_iou = mean_iou
+                # Save weights
+                os.makedirs(args.save_model_path, exist_ok=True)
+                torch.save(model.state_dict(), os.path.join(args.save_model_path, 'best_loss.pth'))
+
+            for cls, iou in zip(classes, per_class_iou):
+                writer.add_scalar(f'epoch/{cls}_iou', iou, epoch)
+
+            # Tensorboard Logging
+            writer.add_scalar('epoch/precision', precision, epoch)
+            writer.add_scalar('epoch/miou', mean_iou, epoch)
+
+            print(f'global precision:\t\t {precision:.3f}')
+            print(f'mean iou:\t\t {mean_iou:.3f}')
+            print(f"per-class iou:\n {[f'{cls}: {iou:.3f}' for cls, iou in zip(classes, per_class_iou)]}")
 
         # Recurrent Checkpointing
         if (epoch + 1) % args.checkpoint_step == 0 or epoch == args.num_epochs:
             # Save weights
             os.makedirs(args.save_model_path, exist_ok=True)
-            torch.save(model.state_dict(), os.path.join(args.save_model_path, 'latest_dice_loss.pth'))
+            torch.save(model.state_dict(), os.path.join(args.save_model_path, 'latest_loss.pth'))

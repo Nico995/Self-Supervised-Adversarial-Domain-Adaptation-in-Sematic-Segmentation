@@ -116,28 +116,22 @@ def validate_advent(model, data, label, criterion, loss, classes):
 
     # Don't compute gradients during evaluation step
     with torch.no_grad():
-        ############
-        #  Target  #
-        #    Val   #
-        ############
-        with autocast():
 
-            # Get network output
-            output = model(data)
-            target_loss = criterion(output)
-
-        # get model output
-        predict = output.squeeze()
+        # get model output and remove batch dimension
+        predict = model(data).squeeze()
+        # Get the prediction by getting the maximum probability along dimension 0
         predict = reverse_one_hot(predict)
-        predict = np.array(predict.detach().cpu())
+        # predict = np.array(predict.detach().cpu())
 
-        # get RGB label image
+        # get RGB label image and remove batch dimension
         label = label.squeeze()
-        label = reverse_one_hot(label)
-        label = np.array(label.detach().cpu())
+        if loss == 'dice':
+            label = reverse_one_hot(label)
+
+        # label = np.array(label.detach().cpu())
 
         # compute per pixel accuracy
         precision = global_accuracy(predict, label)
-        confusion_matrix = get_confusion_matrix(label.flatten(), predict.flatten(), classes)
+        confusion_matrix = get_confusion_matrix(predict.flatten(), label.flatten(), classes)
 
-        return target_loss.item(), precision, confusion_matrix
+        return precision, confusion_matrix
