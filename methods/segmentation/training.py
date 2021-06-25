@@ -12,6 +12,7 @@ from utils.utils import poly_lr_scheduler
 
 classes = ['Byc', 'Bld', 'Car', 'Pol', "Fnc", "Ped", "Rod", "Sdw", "Sin", "Sky", "Tre"]
 
+
 def validation(args, model, dataloader_val, criterion):
     """
     This function contains the validation loop
@@ -119,7 +120,8 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
             # Early stopping when training IDDA
             if i >= 78:
                 break
-        # Update learning rate at the end of each batch
+
+            # Update learning rate at the end of each batch
         # scheduler.step()
 
         # Logging & progress bar
@@ -143,14 +145,14 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
                 best_mean_iou = mean_iou
                 # Save weights
                 os.makedirs(args.save_model_path, exist_ok=True)
-                torch.save(model.state_dict(), os.path.join(args.save_model_path, 'best_dice_loss.pth'))
+                torch.save(model.state_dict(), os.path.join(args.save_model_path, 'best_loss.pth'))
 
             for cls, iou in zip(classes, per_class_iou):
                 writer.add_scalar(f'epoch/{cls}_iou', iou, epoch)
 
             # Tensorboard Logging
-            writer.add_scalar('epoch/precision_val', precision, epoch)
-            writer.add_scalar('epoch/miou val', mean_iou, epoch)
+            writer.add_scalar('epoch/precision', precision, epoch)
+            writer.add_scalar('epoch/miou', mean_iou, epoch)
 
             print(f'global precision:\t\t {precision:.3f}')
             print(f'mean iou:\t\t {mean_iou:.3f}')
@@ -160,4 +162,4 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
         if (epoch + 1) % args.checkpoint_step == 0 or epoch == args.num_epochs:
             # Save weights
             os.makedirs(args.save_model_path, exist_ok=True)
-            torch.save(model.state_dict(), os.path.join(args.save_model_path, 'latest_dice_loss.pth'))
+            torch.save(model.state_dict(), os.path.join(args.save_model_path, 'latest_loss.pth'))
