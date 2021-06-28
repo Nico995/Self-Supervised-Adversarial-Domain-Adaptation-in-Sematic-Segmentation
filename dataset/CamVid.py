@@ -110,7 +110,7 @@ class CamVid(torch.utils.data.Dataset):
             label = encode_label_dice(label, self.label_info).astype(np.uint8)
             label = torch.from_numpy(label)
 
-        elif self.loss == 'crossentropy':
+        else:  # crossentropy-based methods
             # Encode label image
             label = encode_label_crossentropy(label, self.label_info).astype(np.uint8)
             label = torch.from_numpy(label).long()

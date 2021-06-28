@@ -114,7 +114,7 @@ class IDDA(torch.utils.data.Dataset):
             label = encode_label_idda_dice(label).astype(np.uint8)
             label = torch.from_numpy(label)
 
-        elif self.loss == 'crossentropy':
+        else:  # crossentropy-based methods
             label = encode_label_idda_crossentropy(label)
             label = torch.from_numpy(label)
 
