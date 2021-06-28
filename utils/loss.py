@@ -143,8 +143,12 @@ class SoftLoss(nn.Module):
         return torch.mean(loss)
 
 
-def bce_loss(y_pred, y_label):
-    y_truth_tensor = torch.FloatTensor(y_pred.size())
-    y_truth_tensor.fill_(y_label)
-    y_truth_tensor = y_truth_tensor.to(y_pred.get_device())
-    return nn.BCEWithLogitsLoss()(y_pred, y_truth_tensor)
+class BCELoss(nn.Module):
+    def __init__(self):
+        super(BCELoss, self).__init__()
+
+    def forward(self, output, target):
+        y_truth_tensor = torch.FloatTensor(output.size())
+        y_truth_tensor.fill_(target)
+        y_truth_tensor = y_truth_tensor.to(output.get_device())
+        return nn.BCEWithLogitsLoss()(output, y_truth_tensor)
