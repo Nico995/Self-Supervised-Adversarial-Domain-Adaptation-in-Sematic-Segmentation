@@ -37,13 +37,13 @@ def validation(args, model, dataloader_target_val, adaptation_criterion):
 
         # Store metrics
         running_precision.append(precision)
-        running_confusion_matrix += confusion_matrix
+        running_confusion_matrix.append(confusion_matrix)
 
         # Progress bar
         tq.update(1)
 
     precision = np.mean(running_precision)
-    print(torch.stack(running_confusion_matrix).sum(dim=0).shape)
+
     per_class_iou, mean_iou = intersection_over_union(torch.stack(running_confusion_matrix).sum(dim=0))
 
     tq.close()
@@ -120,7 +120,6 @@ def training(args, model, main_discrim, aux_discrim, model_optimizer, main_discr
                             'src_discrim_loss': f'{src_discrim_loss:.6f}',
                             'trg_discrim_loss': f'{trg_discrim_loss:.6f}'})
 
-            break
         # Logging & progress bar
         src_seg_loss_mean = np.mean(running_src_seg_loss)
         trg_adv_loss_mean = np.mean(running_trg_adv_loss)
