@@ -5,7 +5,9 @@ import torch
 import tqdm
 from tensorboardX import SummaryWriter
 
-from methods import validate_segmentation, train_segmentation
+from .bisenet_training import bisenet_training
+from .bisenet_validation import bisenet_validation
+
 from utils import intersection_over_union, plot_prediction
 from utils.utils import poly_lr_scheduler
 
@@ -34,7 +36,7 @@ def validation(args, model, dataloader_val, criterion):
         '''
         This is the actual content of the VALIDATION loop.
         '''
-        precision, confusion_matrix = validate_segmentation(model, data, label, criterion, args.loss, args.num_classes)
+        precision, confusion_matrix = bisenet_validation(model, data, label, criterion, args.loss, args.num_classes)
 
         # Store metrics
         running_precision.append(precision)
@@ -107,7 +109,7 @@ def training(args, model, dataloader_train, dataloader_val, optimizer, scaler, c
             '''
             This is the actual content of the TRAINING loop.
             '''
-            loss = train_segmentation(model, data, label, optimizer, scaler, criterion, args.loss)
+            loss = bisenet_training(model, data, label, optimizer, scaler, criterion, args.loss)
 
             # Logging & progress bar
             step += 1

@@ -3,8 +3,8 @@ from torch.cuda.amp import GradScaler
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
 from dataset import camvid_data_loaders, idda_data_loaders
-from model import BiSeNet
-from methods.segmentation.training import training
+from models import BiSeNet
+from methods.segmentation.segmentation_loop import training
 from utils import load_segm_args, DiceLoss
 from utils.loss import DiceLossV2, OhemCELoss
 
@@ -13,7 +13,7 @@ def main():
     """
     This is the TRAINING script entry point. Differently from most DL implementation, in the main() function we will only keep
     variables initializations and nothing else.
-    We will make use of a script for the general training loop, called domain_adaptation.py (inside methods.py). Inside domain_adaptation.py one can find the
+    We will make use of a script for the general training loop, called adaptation.py (inside methods.py). Inside adaptation.py one can find the
     basic loop structure (epochs and bacthes) common to all Deep Learning's model's tranining.
     The actual code concerning forward-pass, backpropagation and so on, will be in a separate script inside the
     "methods" package. Doing things in this way we hope to keep the code clear and readable, and avoid the (sadly too)

@@ -4,8 +4,8 @@ from torch.nn import CrossEntropyLoss
 from torch.nn import Upsample
 
 from dataset import camvid_data_loaders, idda_data_loaders
-from methods.adaptation.training import training
-from model import BiSeNet, Discriminator
+from methods.adaptation.advent_loop import training
+from models import BiSeNet, Discriminator
 from utils import load_da_args
 from utils.loss import BCELoss, DiceLoss, OhemCELoss
 
@@ -14,7 +14,7 @@ def main():
     """
     This is the TRAINING script entry point. Differently from most DL implementation, in the main() function we will only keep
     variables initializations and nothing else.
-    We will make use of a script for the general training loop, called domain_adaptation.py. Inside domain_adaptation.py one can find the
+    We will make use of a script for the general training loop, called adaptation.py. Inside adaptation.py one can find the
     basic loop structure (epochs and bacthes) common to all Deep Learning's model's tranining.
     The actual code concerning forward-pass, backpropagation and so on, will be in a separate script inside the
     "methods" package. Doing things in this way we hope to keep the code clear and readable, and avoid the (sadly too)
@@ -81,7 +81,7 @@ def main():
     # train
     training(args, model, main_discrim, None, model_optimizer, main_discrim_optimizer, None,
              source_criterion, adversarial_criterion, scaler, dataloader_source_train, dataloader_target_train,
-             dataloader_source_val, dataloader_target_val, lambda_adv_main, lambda_adv_aux)
+             dataloader_target_val, lambda_adv_main, lambda_adv_aux)
 
 
 if __name__ == '__main__':

@@ -1,13 +1,12 @@
-import numpy as np
-import torch
 from torch.cuda.amp import autocast
-
-from utils import reverse_one_hot, global_accuracy, get_confusion_matrix
-from utils.utils import prob_2_entropy
 from torch.nn.functional import softmax
 
-# However, scaler.update should only be called once, after all optimizers used this iteration have been stepped:
+from utils.utils import prob_2_entropy
+
+
+# [...] scaler.update should only be called once, after all optimizers used this iteration have been stepped:
 # https://pytorch.org/docs/stable/notes/amp_examples.html
+
 
 def freeze(model):
     for param in model.parameters():
@@ -19,9 +18,9 @@ def unfreeze(model):
         param.requires_grad = True
 
 
-def train_advent(model, main_discrim, aux_discrim, model_optimizer, main_discrim_optimizer, aux_discrim_optimizer,
-                 source_images, source_labels, target_images, scaler, source_criterion, adversarial_criterion, lambda_adv_main, lambda_adv_aux):
-
+def advent_training(model, main_discrim, aux_discrim, model_optimizer, main_discrim_optimizer, aux_discrim_optimizer,
+                    source_images, source_labels, target_images, scaler, source_criterion, adversarial_criterion,
+                    lambda_adv_main, lambda_adv_aux):
     # labels for adversarial training
     source_domain_label = 0
     target_domain_label = 1
@@ -76,10 +75,10 @@ def train_advent(model, main_discrim, aux_discrim, model_optimizer, main_discrim
     # Compute gradients with gradient scaler
     scaler.scale(loss).backward()
 
-    #Train discriminator networks
+    # Train discriminator networks
     unfreeze(main_discrim)
     # unfreeze(aux_discrim)
-    
+
     # Train with source
     src_seg_out_main = src_seg_out_main.detach()
 
@@ -107,30 +106,3 @@ def train_advent(model, main_discrim, aux_discrim, model_optimizer, main_discrim
     scaler.update()
 
     return src_seg_loss.item(), trg_adv_loss.item(), src_discrim_loss.item(), trg_discrim_loss.item()
-
-
-def validate_advent(model, data, label, criterion, loss, classes):
-    # Disable dropout and batch norm layers
-    model.eval()
-
-    # Don't compute gradients during evaluation step
-    with torch.no_grad():
-
-        # get model output and remove batch dimension
-        predict = model(data).squeeze()
-        # Get the prediction by getting the maximum probability along dimension 0
-        predict = reverse_one_hot(predict)
-        # predict = np.array(predict.detach().cpu())
-
-        # get RGB label image and remove batch dimension
-        label = label.squeeze()
-        if loss == 'dice':
-            label = reverse_one_hot(label)
-
-        # label = np.array(label.detach().cpu())
-
-        # compute per pixel accuracy
-        precision = global_accuracy(predict, label)
-        confusion_matrix = get_confusion_matrix(predict.flatten(), label.flatten(), classes)
-
-        return precision, confusion_matrix

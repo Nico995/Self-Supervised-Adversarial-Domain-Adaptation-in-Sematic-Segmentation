@@ -1,1 +1,1 @@
-from .segmentation import train_segmentation, validate_segmentation
+from .bisenet_training import bisenet_training, validate_segmentation

@@ -5,9 +5,10 @@ import torch
 import tqdm
 from tensorboardX import SummaryWriter
 
-from methods.adaptation.advent import train_advent, validate_advent
 from utils import intersection_over_union
 from utils.utils import poly_lr_scheduler
+from .advent_training import advent_training
+from .advent_validation import advent_validation
 
 classes = ['Byc', 'Bld', 'Car', 'Pol', "Fnc", "Ped", "Rod", "Sdw", "Sin", "Sky", "Tre"]
 
@@ -32,8 +33,8 @@ def validation(args, model, dataloader_target_val, segmentation_criterion):
         '''
         This is the actual content of the VALIDATION loop.
         '''
-        precision, confusion_matrix = validate_advent(model, data, label, segmentation_criterion, args.loss,
-                                                      args.num_classes)
+        precision, confusion_matrix = advent_validation(model, data, label, segmentation_criterion, args.loss,
+                                                        args.num_classes)
 
         # Store metrics
         running_precision.append(precision)
@@ -53,7 +54,7 @@ def validation(args, model, dataloader_target_val, segmentation_criterion):
 
 def training(args, model, main_discrim, aux_discrim, model_optimizer, main_discrim_optimizer, aux_discrim_optimizer,
              segmentation_criterion, adversarial_criterion, scaler, dataloader_source_train, dataloader_target_train,
-             dataloader_source_val, dataloader_target_val, lambda_adv_main, lambda_adv_aux):
+             dataloader_target_val, lambda_adv_main, lambda_adv_aux):
     """
     This is the common double-loop structure that most of us are familiar with.
     One must look here if they're looking for:
@@ -99,9 +100,9 @@ def training(args, model, main_discrim, aux_discrim, model_optimizer, main_discr
             This is the actual content of the TRAINING loop.
             '''
             src_seg_loss, trg_adv_loss, src_discrim_loss, trg_discrim_loss = \
-                train_advent(model, main_discrim, aux_discrim, model_optimizer, main_discrim_optimizer,
-                             aux_discrim_optimizer, source_images, source_labels, target_images,
-                             scaler, segmentation_criterion, adversarial_criterion, lambda_adv_main, lambda_adv_aux)
+                advent_training(model, main_discrim, aux_discrim, model_optimizer, main_discrim_optimizer,
+                                aux_discrim_optimizer, source_images, source_labels, target_images,
+                                scaler, segmentation_criterion, adversarial_criterion, lambda_adv_main, lambda_adv_aux)
 
             # Logging & progress bar
             step += 1

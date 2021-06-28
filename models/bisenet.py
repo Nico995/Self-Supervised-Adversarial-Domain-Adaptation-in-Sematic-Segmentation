@@ -5,7 +5,7 @@ from torch import nn
 from torch.nn.functional import interpolate
 from torchvision.models import resnet101, resnet18
 
-from model.backbone import Resnet
+from models.backbone import Resnet
 
 warnings.filterwarnings(action='ignore')
 
