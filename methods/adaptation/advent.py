@@ -3,7 +3,6 @@ import torch
 from torch.cuda.amp import autocast
 
 from utils import reverse_one_hot, global_accuracy, get_confusion_matrix
-from utils.loss import bce_loss
 from utils.utils import prob_2_entropy
 from torch.nn.functional import softmax
 
@@ -21,7 +20,7 @@ def unfreeze(model):
 
 
 def train_advent(model, main_discrim, aux_discrim, model_optimizer, main_discrim_optimizer, aux_discrim_optimizer,
-                 source_images, source_labels, target_images, scaler, source_criterion, lambda_adv_main, lambda_adv_aux):
+                 source_images, source_labels, target_images, scaler, source_criterion, adversarial_criterion, lambda_adv_main, lambda_adv_aux):
 
     # labels for adversarial training
     source_domain_label = 0
@@ -70,7 +69,7 @@ def train_advent(model, main_discrim, aux_discrim, model_optimizer, main_discrim
         # Get network output
         trg_seg_out_main, _, _ = model(target_images)
         trg_discrim_out = main_discrim(prob_2_entropy(softmax(trg_seg_out_main)))
-        trg_adv_loss = bce_loss(trg_discrim_out, source_domain_label)
+        trg_adv_loss = adversarial_criterion(trg_discrim_out, source_domain_label)
 
         loss = lambda_adv_main * trg_adv_loss
 
@@ -86,7 +85,7 @@ def train_advent(model, main_discrim, aux_discrim, model_optimizer, main_discrim
 
     with autocast():
         src_discrim_out = main_discrim(prob_2_entropy(softmax(src_seg_out_main)))
-        src_discrim_loss = bce_loss(src_discrim_out, source_domain_label)
+        src_discrim_loss = adversarial_criterion(src_discrim_out, source_domain_label)
         src_discrim_loss = src_discrim_loss / 2
 
     scaler.scale(src_discrim_loss).backward()
@@ -96,7 +95,7 @@ def train_advent(model, main_discrim, aux_discrim, model_optimizer, main_discrim
 
     with autocast():
         trg_discrim_out = main_discrim(prob_2_entropy(softmax(trg_seg_out_main)))
-        trg_discrim_loss = bce_loss(trg_discrim_out, target_domain_label)
+        trg_discrim_loss = adversarial_criterion(trg_discrim_out, target_domain_label)
         trg_discrim_loss = trg_discrim_loss / 2
 
     scaler.scale(trg_discrim_loss).backward()
