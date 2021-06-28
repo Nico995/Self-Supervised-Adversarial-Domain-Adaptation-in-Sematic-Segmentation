@@ -12,7 +12,7 @@ from utils.utils import poly_lr_scheduler
 classes = ['Byc', 'Bld', 'Car', 'Pol', "Fnc", "Ped", "Rod", "Sdw", "Sin", "Sky", "Tre"]
 
 
-def validation(args, model, dataloader_target_val, adaptation_criterion):
+def validation(args, model, dataloader_target_val, segmentation_criterion):
     """
     This function contains the validation loop
     """
@@ -32,7 +32,7 @@ def validation(args, model, dataloader_target_val, adaptation_criterion):
         '''
         This is the actual content of the VALIDATION loop.
         '''
-        precision, confusion_matrix = validate_advent(model, data, label, adaptation_criterion, args.loss,
+        precision, confusion_matrix = validate_advent(model, data, label, segmentation_criterion, args.loss,
                                                       args.num_classes)
 
         # Store metrics
@@ -52,7 +52,7 @@ def validation(args, model, dataloader_target_val, adaptation_criterion):
 
 
 def training(args, model, main_discrim, aux_discrim, model_optimizer, main_discrim_optimizer, aux_discrim_optimizer,
-             source_criterion, adaptation_criterion, scaler, dataloader_source_train, dataloader_target_train,
+             segmentation_criterion, adversarial_criterion, scaler, dataloader_source_train, dataloader_target_train,
              dataloader_source_val, dataloader_target_val, lambda_adv_main, lambda_adv_aux):
     """
     This is the common double-loop structure that most of us are familiar with.
@@ -95,14 +95,13 @@ def training(args, model, main_discrim, aux_discrim, model_optimizer, main_discr
             # Move images to gpu
             source_images, source_labels = source_data[0], source_data[1]
             target_images = target_data[0]
-
             '''
             This is the actual content of the TRAINING loop.
             '''
             src_seg_loss, trg_adv_loss, src_discrim_loss, trg_discrim_loss = \
                 train_advent(model, main_discrim, aux_discrim, model_optimizer, main_discrim_optimizer,
                              aux_discrim_optimizer, source_images, source_labels, target_images,
-                             scaler, source_criterion, lambda_adv_main, lambda_adv_aux)
+                             scaler, segmentation_criterion, adversarial_criterion, lambda_adv_main, lambda_adv_aux)
 
             # Logging & progress bar
             step += 1
@@ -142,7 +141,7 @@ def training(args, model, main_discrim, aux_discrim, model_optimizer, main_discr
             '''
             This is the actual content of the validation loop
             '''
-            precision, per_class_iou, mean_iou = validation(args, model, dataloader_target_val, adaptation_criterion)
+            precision, per_class_iou, mean_iou = validation(args, model, dataloader_target_val, segmentation_criterion)
             # Save model if has better accuracy
             if mean_iou > best_mean_iou:
                 best_mean_iou = mean_iou
