@@ -1,14 +1,13 @@
 import torch
 from torch.cuda.amp import GradScaler
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+from torch.nn import CrossEntropyLoss
 from torch.nn import Upsample
 
 from dataset import camvid_data_loaders, idda_data_loaders
 from methods.adaptation.training import training
 from model import BiSeNet, Discriminator
-from utils import DiceLoss
 from utils import load_da_args
-from utils.loss import EntropyLoss
+from utils.loss import BCELoss, DiceLoss, OhemCELoss
 
 
 def main():
@@ -52,11 +51,23 @@ def main():
 
     # interpolate output segmaps
     interp = Upsample(size=(args.crop_height, args.crop_width), mode='bilinear', align_corners=True)
-    interp_target = Upsample(size=(args.crop_height, args.crop_width), mode='bilinear',  align_corners=True)
+    interp_target = Upsample(size=(args.crop_height, args.crop_width), mode='bilinear', align_corners=True)
 
     # Loss function
-    source_criterion = torch.nn.CrossEntropyLoss()
-    adaptation_criterion = EntropyLoss()
+    if args.loss == 'dice':
+        source_criterion = DiceLoss()
+    elif args.loss == 'crossentropy':
+        source_criterion = CrossEntropyLoss()
+    elif args.loss == 'ohemce':
+        source_criterion = OhemCELoss(0.7)
+    elif args.loss == 'focal':
+        NotImplementedError()
+        exit()
+    else:
+        NotImplementedError()
+        exit()
+
+    adversarial_criterion = BCELoss()
 
     # Enable cuDNN auto-tuner
     torch.backends.cudnn.benchmark = True
@@ -69,7 +80,7 @@ def main():
 
     # train
     training(args, model, main_discrim, None, model_optimizer, main_discrim_optimizer, None,
-             source_criterion, adaptation_criterion, scaler, dataloader_source_train, dataloader_target_train,
+             source_criterion, adversarial_criterion, scaler, dataloader_source_train, dataloader_target_train,
              dataloader_source_val, dataloader_target_val, lambda_adv_main, lambda_adv_aux)
 
 
