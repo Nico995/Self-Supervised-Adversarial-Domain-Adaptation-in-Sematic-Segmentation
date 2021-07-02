@@ -7,7 +7,7 @@ from dataset import camvid_data_loaders, idda_data_loaders
 from methods.adaptation.advent_loop import training
 from models import BiSeNet, Discriminator
 from utils import load_da_args
-from utils.loss import BCELoss, DiceLoss, OhemCELoss
+from utils.loss import BCELoss, DiceLoss, OhemCELoss, FocalLoss
 
 
 def main():
@@ -61,8 +61,7 @@ def main():
     elif args.loss == 'ohemce':
         source_criterion = OhemCELoss(0.7)
     elif args.loss == 'focal':
-        NotImplementedError()
-        exit()
+        source_criterion = FocalLoss()
     else:
         NotImplementedError()
         exit()
