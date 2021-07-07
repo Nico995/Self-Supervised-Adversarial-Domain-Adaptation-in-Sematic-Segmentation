@@ -166,3 +166,4 @@ def training(args, model, main_discrim, aux_discrim, model_optimizer, main_discr
             # Save weights
             os.makedirs(args.save_model_path, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(args.save_model_path, 'latest_loss.pth'))
+            torch.save(main_discrim.state_dict(), os.path.join(args.save_model_path, 'discrim_latest_loss.pth'))
