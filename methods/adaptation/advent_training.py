@@ -63,7 +63,6 @@ def advent_training(model, main_discrim, aux_discrim, model_optimizer, main_disc
     # Move second set of images to GPU
     target_images = target_images.cuda()
 
-    # TODO: Finish implementing
     with autocast():
         # Get network output
         trg_seg_out_main, _, _ = model(target_images)
