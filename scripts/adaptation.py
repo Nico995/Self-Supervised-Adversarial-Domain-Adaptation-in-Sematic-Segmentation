@@ -49,15 +49,14 @@ def main():
     main_discrim_optimizer = torch.optim.Adam(main_discrim.parameters(), 0.001, betas=(0.9, 0.99))
     # aux_discrim_optimizer = torch.optim.Adam(aux_discrim.parameters(), 0.0002, betas=(0.9, 0.99))
 
-    # interpolate output segmaps
-    interp = Upsample(size=(args.crop_height, args.crop_width), mode='bilinear', align_corners=True)
-    interp_target = Upsample(size=(args.crop_height, args.crop_width), mode='bilinear', align_corners=True)
-
     # Loss function
     if args.loss == 'dice':
         source_criterion = DiceLoss()
     elif args.loss == 'crossentropy':
         source_criterion = CrossEntropyLoss()
+    elif args.loss == 'w-crossentropy':
+        weights = torch.tensor([49.67921, 3.69400, 8.89629, 33.22527, 41.83631, 48.89131, 3.32281, 18.71936, 45.64166, 7.41329, 12.83001, 0]).cuda()
+        source_criterion = CrossEntropyLoss(weight=weights, ignore_index=11)
     elif args.loss == 'ohemce':
         source_criterion = OhemCELoss(0.7)
     elif args.loss == 'focal':
