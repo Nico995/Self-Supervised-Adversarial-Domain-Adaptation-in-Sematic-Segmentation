@@ -380,9 +380,8 @@ runs
 events.*
 
 # images
-/*.png
 /*.jpg
 /images
-/less-old_runs
 /runs_data
-/morer_old_runs
+*.mp4
+*.MXF
