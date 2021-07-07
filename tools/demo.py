@@ -1,18 +1,19 @@
-import random
+import os.path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from PIL import Image
 from torchvision.transforms import Compose, ToTensor, Normalize
 
-from dataset import camvid_data_loaders, idda_data_loaders
 from models import BiSeNet
 from utils import load_segm_args, reverse_one_hot, convert_class_to_color
 # from model_old.build_BiSeNet import BiSeNet
-from utils.utils import batch_to_plottable_image, encode_label_dice, get_label_info, encode_label_idda_dice
-from PIL import Image
+from utils.utils import encode_label_dice, get_label_info, encode_label_idda_dice
 
 if __name__ == '__main__':
+
+    savedir = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/report_images/inference'
 
     # Read command line arguments
     args = load_segm_args()
@@ -20,21 +21,21 @@ if __name__ == '__main__':
     model = BiSeNet(args.num_classes, args.context_path).cuda()
     model.load_state_dict(torch.load(args.pretrained_model_path))
 
-    #weighted crossentropy
-    #hard negative mining
-    #focal loss
+    # weighted crossentropy
+    # hard negative mining
+    # focal loss
     if args.dataset == 'CamVid':
-        image_path = '/data/CamVid/test/Seq05VD_f01110.png'
-        label_path = '/data/CamVid/test_labels/Seq05VD_f01110_L.png'
+        image_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet//data/CamVid/test/Seq05VD_f04530.png'
+        label_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet//data/CamVid/test_labels/Seq05VD_f04530_L.png'
         normalize = Compose([
             ToTensor(),
             Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         ])
-        label = torch.tensor(encode_label_dice(Image.open(label_path), get_label_info('../data/CamVid/class_dict.csv')))
+        label = torch.tensor(encode_label_dice(Image.open(label_path), get_label_info('/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/CamVid/class_dict.csv')))
 
     else:
-        image_path = '/data/IDDA/test/@277548.198@110606.177@Town10@ClearNoon@audi@1608476889@1.0000747884809016@1.0009874550785103@0.006818489637225866@373573@.jpg'
-        label_path = '/data/IDDA/test_labels/@277548.198@110606.177@Town10@ClearNoon@audi@1608476889@1.0000747884809016@1.0009874550785103@0.006818489637225866@373573@.png'
+        image_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/IDDA/test/@277523.219@110462.794@Town10@ClearNoon@audi@1608287362@0.9987782228147495@1.0007638637244156@1.0836338996887207@204741@.jpg'
+        label_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/IDDA/test_labels/@277523.219@110462.794@Town10@ClearNoon@audi@1608287362@0.9987782228147495@1.0007638637244156@1.0836338996887207@204741@.png'
         normalize = Compose([
             ToTensor(),
             Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
@@ -45,14 +46,13 @@ if __name__ == '__main__':
     model.eval()
 
     image, label = image.cuda(), torch.tensor(label.cuda())
-    fig, ax = plt.subplots(1, 2)
-    ax = ax.ravel()
+
+    fig = plt.figure()
     predict = model(image.unsqueeze(0))
-    ax[0].imshow(convert_class_to_color(reverse_one_hot(predict[0])))
-    ax[0].set_title("predicted")
-
-    ax[1].imshow(convert_class_to_color(reverse_one_hot(label)))
-    ax[1].set_title("label")
-    plt.show()
-
+    plt.imshow(convert_class_to_color(reverse_one_hot(predict[0])))
+    plt.axis('off')
+    plt.tight_layout()
+    loss_version = args.pretrained_model_path.split('/')[-2].split('-')[-1]
+    plt.savefig(os.path.join(savedir, args.dataset + '_' + loss_version), bbox_inches='tight')
+    print('fig saved at ', os.path.join(savedir, args.dataset + '_' + loss_version))
     exit()
