@@ -291,6 +291,15 @@ def convert_class_to_color(img):
     return new_img
 
 
+def convert_class_to_color_V2(img):
+    class_to_color = torch.tensor([[0, 128, 192], [128, 0, 0], [64, 0, 128], [192, 192, 128], [64, 64, 128], [64, 64, 0],
+                      [128, 64, 128], [0, 0, 192], [192, 128, 128], [128, 128, 128], [128, 128, 0], [0, 0, 0]])
+
+    img = class_to_color[img.long()]
+
+    return img
+
+
 def plot_prediction(model, dataloader_val, epoch, dataset='CamVid'):
     if dataset == 'CamVid':
         image_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/CamVid/test/Seq05VD_f01110.png'
