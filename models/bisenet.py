@@ -40,7 +40,6 @@ class ConvBlock(torch.nn.Module):
 
 
 class Spatial_path(torch.nn.Module):
-    # TODO: Parametrize in/out channels of the conv-blocks
     """
     Spatial Path model branch. This path is supposed to encode "rich spatial information".
     It is made up of 3 convolutional blocks, which in total will resize the inputs image to 1/8 of it's original size.
@@ -245,10 +244,9 @@ class BiSeNet(torch.nn.Module):
         result = self.conv(result)
 
         if self.training:
-            # ??? Page 7 "loss function"
             cx1_sup = self.supervision1(cx1)
             cx2_sup = self.supervision2(cx2)
-            # ???
+
             cx1_sup = torch.nn.functional.interpolate(cx1_sup, size=inputs.size()[-2:], mode='bilinear')
             cx2_sup = torch.nn.functional.interpolate(cx2_sup, size=inputs.size()[-2:], mode='bilinear')
 

@@ -25,8 +25,8 @@ if __name__ == '__main__':
     # hard negative mining
     # focal loss
     if args.dataset == 'CamVid':
-        image_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet//data/CamVid/test/Seq05VD_f04530.png'
-        label_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet//data/CamVid/test_labels/Seq05VD_f04530_L.png'
+        image_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/CamVid/train/0016E5_01920.png'
+        label_path = '/home/nicola/Documents/uni/MLDL/project/BiSeNet/data/CamVid/train_labels/0016E5_01920_L.png'
         normalize = Compose([
             ToTensor(),
             Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
@@ -42,6 +42,7 @@ if __name__ == '__main__':
         ])
         label = torch.tensor(encode_label_idda_dice(np.array(Image.open(label_path).convert('RGB'))))
 
+    image_name = image_path.split('/')[-1].split('.')[0]
     image = normalize(Image.open(image_path))
     model.eval()
 
@@ -53,6 +54,6 @@ if __name__ == '__main__':
     plt.axis('off')
     plt.tight_layout()
     loss_version = args.pretrained_model_path.split('/')[-2].split('-')[-1]
-    plt.savefig(os.path.join(savedir, args.dataset + '_' + loss_version), bbox_inches='tight')
-    print('fig saved at ', os.path.join(savedir, args.dataset + '_' + loss_version))
+    plt.savefig(os.path.join(savedir, image_name + '_' + loss_version), bbox_inches='tight')
+    print('fig saved at ', os.path.join(savedir, image_name + '_' + loss_version))
     exit()

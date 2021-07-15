@@ -21,11 +21,9 @@ class IDDA(torch.utils.data.Dataset):
     """
     Custom dataset class to manage images and labels
     """
-
     def __init__(self, image_path, label_path, csv_path, image_size, mode='train', loss='dice', pre_encoded=False,
                  max_images=None, do_augmentation=True):
         """
-
         Args:
             image_path (str): path of the images folder.
             label_path (str): path of the labels folder.

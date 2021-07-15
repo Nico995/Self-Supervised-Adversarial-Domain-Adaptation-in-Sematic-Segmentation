@@ -103,7 +103,7 @@ def encode_label_idda_crossentropy(label):
     class_map = [11, 1, 4, 11, 5, 3, 6, 6, 7, 10, 2, 11, 8, 11, 11, 11, 0, 11, 11, 11, 9, 11, 11, 11, 1, 11, 11]
 
     label = np.array(label)
-    # Build the first layer of the encoded image (void class)
+
     return np.array([class_map[v] for v in np.max(label, axis=-1).flatten()]).reshape(label.shape[:2])
 
 

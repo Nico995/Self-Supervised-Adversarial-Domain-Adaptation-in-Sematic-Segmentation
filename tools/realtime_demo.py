@@ -37,7 +37,7 @@ class VideoCamera(object):
 
     def get_frame(self):
 
-        # start = time.time_ns() // 1000000
+        start = time.time_ns() // 1000000
 
         success, image = self.video.read()
         if not success:
@@ -45,20 +45,20 @@ class VideoCamera(object):
             print("video finished")
             exit()
 
-        # gpu_image = normalize(image).cuda().unsqueeze(0)
-        # predict = model(gpu_image)[0]
+        gpu_image = normalize(image).cuda().unsqueeze(0)
+        predict = model(gpu_image)[0]
 
-        # predict = reverse_one_hot(predict)
+        predict = reverse_one_hot(predict)
 
         # This slows down of about 6 fps
-        # predict = convert_class_to_color_V2(predict).detach().cpu().numpy().astype(np.uint8)
-        # predict = cv2.cvtColor(predict, cv2.COLOR_BGR2RGB)
+        predict = convert_class_to_color_V2(predict).detach().cpu().numpy().astype(np.uint8)
+        predict = cv2.cvtColor(predict, cv2.COLOR_BGR2RGB)
         end = time.time_ns() // 1000000
 
-        # cv2.putText(predict, f'FPS {1000//(end-start)}', (900, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (51, 255, 51), 2)
-        # out = np.concatenate((cv2.resize(image, (480, 360)), cv2.resize(predict, (480, 360))), axis=1)
-        ret, jpeg = cv2.imencode('.jpg', image)
-        self.video_out.write(image)
+        cv2.putText(predict, f'FPS {1000//(end-start)}', (900, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (51, 255, 51), 2)
+        out = np.concatenate((cv2.resize(image, (480, 360)), cv2.resize(predict, (480, 360))), axis=1)
+        ret, jpeg = cv2.imencode('.jpg', out)
+        self.video_out.write(out)
 
         return jpeg.tobytes()
 
@@ -87,7 +87,7 @@ if __name__ == '__main__':
 
     print('Loading pretrained model')
     model = BiSeNet(12, 'resnet101').cuda()
-    model.load_state_dict(torch.load('../runs_data/da-res101-crossentropy_2/best_loss.pth'))
+    model.load_state_dict(torch.load('../runs_data/da-res101-crossentropy/best_loss.pth'))
     model.eval()
     cudnn.benchmark = True
 
